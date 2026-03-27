@@ -5,11 +5,21 @@ use axum::{
     Router,
 };
 use futures::{SinkExt, StreamExt};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
 use tower_http::services::ServeDir;
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ChatMessage {
+    #[serde(rename = "type")]
+    msg_type: String,
+    content: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    sender_id: Option<String>,
+}
 
 #[tokio::main]
 async fn main() {
@@ -21,14 +31,14 @@ async fn main() {
 
     // Build the application router
     let app = Router::new()
-        .route("/", get(index_handler))
         .route("/ws", get(ws_handler))
         .route("/upload", post(upload_handler))
         .nest_service("/files", ServeDir::new("shared_files"))
+        .nest_service("/", ServeDir::new("static"))
         .with_state((tx, clients));
 
     // Run the server
-    let addr = SocketAddr::from(([0, 0, 0, 0], 9000));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
     println!("Server running on http://{}", addr);
     println!("File sharing available at http://{}/files", addr);
     println!("WebSocket chat available at ws://{}/ws", addr);
@@ -37,116 +47,6 @@ async fn main() {
     axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
-}
-
-async fn index_handler() -> Html<&'static str> {
-    Html(
-        r#"
-<!DOCTYPE html>
-<html>
-<head>
-    <title>LAN Sharing</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 40px; }
-        .container { max-width: 800px; margin: 0 auto; }
-        .section { margin-bottom: 40px; }
-        h1 { color: #333; }
-        .chat-box { height: 300px; border: 1px solid #ccc; overflow-y: scroll; padding: 10px; margin-bottom: 10px; }
-        .message { margin-bottom: 5px; }
-        .file-list { margin-top: 20px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>LAN File Sharing & Chat</h1>
-        
-        <div class="section">
-            <h2>File Upload</h2>
-            <form action="/upload" method="post" enctype="multipart/form-data">
-                <input type="file" name="file" required>
-                <button type="submit">Upload</button>
-            </form>
-            <div class="file-list">
-                <h3>Shared Files:</h3>
-                <ul id="file-list"></ul>
-            </div>
-        </div>
-        
-        <div class="section">
-            <h2>Chat</h2>
-            <div class="chat-box" id="chat-box"></div>
-            <input type="text" id="message-input" placeholder="Type a message..." style="width: 80%; padding: 5px;">
-            <button onclick="sendMessage()" style="padding: 5px 10px;">Send</button>
-        </div>
-    </div>
-
-    <script>
-        const chatBox = document.getElementById('chat-box');
-        const messageInput = document.getElementById('message-input');
-        const fileList = document.getElementById('file-list');
-        
-        // WebSocket connection
-        const ws = new WebSocket(`ws://${window.location.host}/ws`);
-        
-        ws.onmessage = function(event) {
-            const message = document.createElement('div');
-            message.className = 'message';
-            message.textContent = event.data;
-            chatBox.appendChild(message);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        };
-        
-        function sendMessage() {
-            const message = messageInput.value;
-            if (message) {
-                ws.send(message);
-                messageInput.value = '';
-            }
-        }
-        
-        messageInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
-        });
-        
-        // Load file list
-        async function loadFileList() {
-            try {
-                const response = await fetch('/files');
-                if (response.ok) {
-                    const text = await response.text();
-                    // Simple parsing of directory listing
-                    const parser = new DOMParser();
-                    const doc = parser.parseFromString(text, 'text/html');
-                    const links = doc.querySelectorAll('a');
-                    fileList.innerHTML = '';
-                    links.forEach(link => {
-                        if (link.href.includes('/files/')) {
-                            const li = document.createElement('li');
-                            const a = document.createElement('a');
-                            a.href = link.href;
-                            a.textContent = link.textContent;
-                            a.target = '_blank';
-                            li.appendChild(a);
-                            fileList.appendChild(li);
-                        }
-                    });
-                }
-            } catch (error) {
-                console.error('Error loading file list:', error);
-            }
-        }
-        
-        // Load file list on page load
-        loadFileList();
-        // Refresh file list every 5 seconds
-        setInterval(loadFileList, 5000);
-    </script>
-</body>
-</html>
-    "#,
-    )
 }
 
 async fn ws_handler(
@@ -189,11 +89,35 @@ async fn handle_socket(
 
     // Spawn a task to receive messages from this client
     let tx2 = tx.clone();
+    let client_id_clone = client_id.clone();
+    let mut client_id_from_client: Option<String> = None;
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
             if let axum::extract::ws::Message::Text(text) = msg {
-                // Broadcast the message to all clients
-                let _ = tx2.send(text);
+                // Parse the incoming message
+                if let Ok(chat_msg) = serde_json::from_str::<ChatMessage>(&text) {
+                    match chat_msg.msg_type.as_str() {
+                        "register" => {
+                            // 客户端发送的注册消息，包含client_id
+                            if let Some(cid) = chat_msg.sender_id {
+                                client_id_from_client = Some(cid);
+                            }
+                        }
+                        "message" => {
+                            // 使用客户端发送的ID，如果没有则使用服务器生成的ID
+                            let sender_id = client_id_from_client.clone().unwrap_or_else(|| client_id_clone.clone());
+                            // Create a message with sender ID
+                            let broadcast_msg = ChatMessage {
+                                msg_type: "message".to_string(),
+                                content: chat_msg.content,
+                                sender_id: Some(sender_id),
+                            };
+                            let json = serde_json::to_string(&broadcast_msg).unwrap();
+                            let _ = tx2.send(json);
+                        }
+                        _ => {}
+                    }
+                }
             }
         }
     });

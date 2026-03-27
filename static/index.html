@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>局域网分享</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        secondary: '#64748b'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .chat-container {
+            height: calc(100vh - 400px);
+            min-height: 300px;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 min-h-screen">
+    <div class="w-full px-6 py-8">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">局域网分享</h1>
+            <p class="text-gray-600">文件分享与实时聊天</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- 文件分享部分 -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex items-center mb-6">
+                    <div class="bg-blue-100 p-3 rounded-lg mr-4">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
+                            </path>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-semibold text-gray-800">文件分享</h2>
+                </div>
+
+                <form action="/upload" method="post" enctype="multipart/form-data" class="mb-6">
+                    <div
+                        class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary transition-colors">
+                        <input type="file" name="file" id="file-input" class="hidden" required>
+                        <label for="file-input" class="cursor-pointer">
+                            <div class="mb-4">
+                                <svg class="w-12 h-12 text-gray-400 mx-auto" fill="none" stroke="currentColor"
+                                    viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
+                                    </path>
+                                </svg>
+                            </div>
+                            <p class="text-gray-600 mb-2">点击选择文件或拖拽到此处</p>
+                            <p class="text-sm text-gray-500">支持任意文件类型</p>
+                        </label>
+                    </div>
+                    <button type="submit"
+                        class="w-full mt-4 bg-primary hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
+                        上传文件
+                    </button>
+                </form>
+
+                <div class="border-t pt-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">已分享文件</h3>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <ul id="file-list" class="space-y-2">
+                            <!-- 文件列表将由JavaScript动态生成 -->
+                        </ul>
+                        <div id="empty-state" class="text-center py-8 text-gray-500">
+                            <svg class="w-12 h-12 mx-auto mb-2 text-gray-300" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                                </path>
+                            </svg>
+                            <p>暂无共享文件</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 聊天部分 -->
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <div class="flex items-center mb-6">
+                    <div class="bg-green-100 p-3 rounded-lg mr-4">
+                        <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z">
+                            </path>
+                        </svg>
+                    </div>
+                    <h2 class="text-2xl font-semibold text-gray-800">实时聊天</h2>
+                </div>
+
+                <div class="chat-container bg-gray-50 rounded-lg p-4 mb-4" id="chat-box">
+                    <!-- 聊天消息将由JavaScript动态生成 -->
+                </div>
+
+                <div class="flex gap-2">
+                    <input type="text" id="message-input" placeholder="输入消息..."
+                        class="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <button onclick="sendMessage()"
+                        class="bg-primary hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
+                        发送
+                    </button>
+                </div>
+                <p class="text-sm text-gray-500 mt-2">按 Enter 键发送消息</p>
+            </div>
+        </div>
+
+        <footer class="text-center mt-12 text-gray-500 text-sm">
+            <p>局域网分享工具 - 基于 Rust + Axum</p>
+        </footer>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const messageInput = document.getElementById('message-input');
+        const fileList = document.getElementById('file-list');
+        const emptyState = document.getElementById('empty-state');
+
+        // WebSocket 连接
+        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        // 生成客户端ID
+        let myClientId = 'client_' + Math.random().toString(36).substr(2, 9);
+
+        ws.onopen = function () {
+            // 发送注册消息，包含客户端ID
+            ws.send(JSON.stringify({ type: 'register', sender_id: myClientId }));
+            addSystemMessage('已连接到聊天服务器');
+        };
+
+        ws.onmessage = function (event) {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'message') {
+                    // 检查是否是自己发送的消息
+                    const isMyMessage = data.sender_id === myClientId;
+                    addMessage(data.content, isMyMessage ? 'sent' : 'received');
+                }
+            } catch (e) {
+                // 如果不是JSON格式，作为普通消息处理
+                addMessage(event.data, 'received');
+            }
+        };
+
+        ws.onclose = function () {
+            addSystemMessage('与服务器断开连接');
+        };
+
+        ws.onerror = function () {
+            addSystemMessage('连接错误');
+        };
+
+        function addMessage(text, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `mb-3 p-3 rounded-lg max-w-xs ${type === 'sent' ? 'bg-primary text-white ml-auto' : 'bg-white border'}`;
+            messageDiv.innerHTML = `
+                <div class="text-sm ${type === 'sent' ? 'text-blue-100' : 'text-gray-500'} mb-1">
+                    ${type === 'sent' ? '我' : '其他用户'}
+                </div>
+                <div>${text}</div>
+                <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-400'} mt-1 text-right">
+                    ${new Date().toLocaleTimeString()}
+                </div>
+            `;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function addSystemMessage(text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'text-center text-gray-500 text-sm my-4';
+            messageDiv.textContent = text;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message && ws.readyState === WebSocket.OPEN) {
+                // 不在本地添加消息，等待服务器广播回来
+                ws.send(JSON.stringify({ type: 'message', content: message }));
+                messageInput.value = '';
+            }
+        }
+
+        messageInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // 加载文件列表
+        async function loadFileList() {
+            try {
+                const response = await fetch('/files');
+                if (response.ok) {
+                    const text = await response.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(text, 'text/html');
+                    const links = doc.querySelectorAll('a');
+
+                    fileList.innerHTML = '';
+                    let hasFiles = false;
+
+                    links.forEach(link => {
+                        if (link.href.includes('/files/') && !link.href.endsWith('/files/')) {
+                            hasFiles = true;
+                            const li = document.createElement('li');
+                            li.className = 'flex items-center justify-between bg-white p-3 rounded-lg border hover:shadow-md transition-shadow';
+
+                            const fileName = link.textContent;
+                            const fileExt = fileName.split('.').pop().toLowerCase();
+                            let iconClass = 'text-gray-500';
+
+                            // 根据文件类型设置图标颜色
+                            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(fileExt)) {
+                                iconClass = 'text-green-500';
+                            } else if (['pdf', 'doc', 'docx', 'txt'].includes(fileExt)) {
+                                iconClass = 'text-blue-500';
+                            } else if (['zip', 'rar', '7z'].includes(fileExt)) {
+                                iconClass = 'text-yellow-500';
+                            }
+
+                            li.innerHTML = `
+                                <div class="flex items-center">
+                                    <svg class="w-5 h-5 ${iconClass} mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <span class="text-gray-700 truncate max-w-xs">${fileName}</span>
+                                </div>
+                                <a href="${link.href}" download class="text-primary hover:text-blue-700 font-medium text-sm">
+                                    下载
+                                </a>
+                            `;
+                            fileList.appendChild(li);
+                        }
+                    });
+
+                    emptyState.style.display = hasFiles ? 'none' : 'block';
+                }
+            } catch (error) {
+                console.error('加载文件列表失败:', error);
+            }
+        }
+
+        // 页面加载时获取文件列表
+        loadFileList();
+
+        // 每5秒刷新文件列表
+        setInterval(loadFileList, 5000);
+
+        // 拖拽上传支持
+        const dropZone = document.querySelector('.border-dashed');
+        const fileInput = document.getElementById('file-input');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight() {
+            dropZone.classList.add('border-primary', 'bg-blue-50');
+        }
+
+        function unhighlight() {
+            dropZone.classList.remove('border-primary', 'bg-blue-50');
+        }
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+
+            // 自动提交表单
+            if (files.length > 0) {
+                const form = document.querySelector('form');
+                const formData = new FormData(form);
+
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                }).then(response => {
+                    if (response.ok) {
+                        loadFileList();
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+
+</html>
