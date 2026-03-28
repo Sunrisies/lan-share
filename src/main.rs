@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Multipart, WebSocketUpgrade},
+    extract::{DefaultBodyLimit, Multipart, WebSocketUpgrade},
     response::IntoResponse,
     routing::{get, post},
     Router,
@@ -43,6 +43,7 @@ async fn main() {
         .route("/upload", post(upload_handler))
         .nest_service("/files", ServeDir::new("shared_files"))
         .nest_service("/", ServeDir::new("static"))
+        .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 设置最大100MB
         .with_state((tx, clients));
 
     // Run the server
@@ -137,33 +138,100 @@ async fn handle_socket(
     }
 }
 
+const MAX_FILE_SIZE: usize = 100 * 1024 * 1024; // 100MB
+
 async fn upload_handler(mut multipart: Multipart) -> impl IntoResponse {
     let mut uploaded_files = Vec::new();
+    let mut errors = Vec::new();
     
-    while let Some(field) = multipart.next_field().await.unwrap() {
-        let file_name = field.file_name().unwrap().to_string();
-        let data = field.bytes().await.unwrap();
+    while let Some(field_result) = multipart.next_field().await.transpose() {
+        match field_result {
+            Ok(field) => {
+                // 获取文件名，如果没有则跳过
+                let file_name = match field.file_name() {
+                    Some(name) => name.to_string(),
+                    None => continue,
+                };
+                
+                // 读取文件数据
+                let data = match field.bytes().await {
+                    Ok(bytes) => bytes,
+                    Err(e) => {
+                        // 如果是 multipart 解析错误，说明文件太大
+                        if e.to_string().contains("multipart/form-data") {
+                            let error_msg = format!("文件太大，超过{}MB限制", MAX_FILE_SIZE / (1024 * 1024));
+                            println!("{}", error_msg);
+                            errors.push(error_msg);
+                            break;
+                        }
+                        let error_msg = format!("文件 '{}' 读取失败: {}", file_name, e);
+                        println!("{}", error_msg);
+                        errors.push(error_msg);
+                        continue;
+                    }
+                };
 
-        // Create shared_files directory if it doesn't exist
-        tokio::fs::create_dir_all("shared_files").await.unwrap();
+                // 检查文件大小
+                if data.len() > MAX_FILE_SIZE {
+                    let error_msg = format!(
+                        "文件 '{}' 太大: {:.2}MB，最大允许: {}MB",
+                        file_name,
+                        data.len() as f64 / (1024.0 * 1024.0),
+                        MAX_FILE_SIZE / (1024 * 1024)
+                    );
+                    println!("{}", error_msg);
+                    errors.push(error_msg);
+                    continue;
+                }
 
-        // Generate unique filename to avoid conflicts
-        let unique_name = format!("{}_{}", uuid::Uuid::new_v4(), file_name);
-        let path = format!("shared_files/{}", unique_name);
-        tokio::fs::write(&path, &data).await.unwrap();
+                // Create shared_files directory if it doesn't exist
+                if let Err(e) = tokio::fs::create_dir_all("shared_files").await {
+                    let error_msg = format!("创建目录失败: {}", e);
+                    println!("{}", error_msg);
+                    errors.push(error_msg);
+                    continue;
+                }
 
-        println!("Uploaded file: {} ({} bytes)", file_name, data.len());
-        
-        uploaded_files.push(serde_json::json!({
-            "file_name": file_name,
-            "file_url": format!("/files/{}", unique_name),
-            "file_size": data.len()
-        }));
+                // Generate unique filename to avoid conflicts
+                let unique_name = format!("{}_{}", uuid::Uuid::new_v4(), file_name);
+                let path = format!("shared_files/{}", unique_name);
+                
+                // 保存文件
+                match tokio::fs::write(&path, &data).await {
+                    Ok(_) => {
+                        println!("Uploaded file: {} ({} bytes)", file_name, data.len());
+                        
+                        uploaded_files.push(serde_json::json!({
+                            "file_name": file_name,
+                            "file_url": format!("/files/{}", unique_name),
+                            "file_size": data.len()
+                        }));
+                    }
+                    Err(e) => {
+                        let error_msg = format!("文件 '{}' 保存失败: {}", file_name, e);
+                        println!("{}", error_msg);
+                        errors.push(error_msg);
+                        continue;
+                    }
+                }
+            }
+            Err(e) => {
+                let error_msg = if e.to_string().contains("multipart/form-data") {
+                    format!("文件太大，超过{}MB限制", MAX_FILE_SIZE / (1024 * 1024))
+                } else {
+                    format!("读取上传数据失败: {}", e)
+                };
+                println!("{}", error_msg);
+                errors.push(error_msg);
+                break;
+            }
+        }
     }
 
-    // Return JSON response with file info
+    // Return JSON response with file info and errors
     axum::Json(serde_json::json!({
-        "success": true,
-        "files": uploaded_files
+        "success": uploaded_files.len() > 0,
+        "files": uploaded_files,
+        "errors": errors
     }))
 }

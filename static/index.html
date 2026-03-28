@@ -43,10 +43,71 @@
             overflow-y: auto;
             height: calc(100vh - 100px);
         }
+        
+        /* 消息提示样式 */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .toast {
+            padding: 12px 20px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 2.7s forwards;
+            max-width: 400px;
+            word-wrap: break-word;
+        }
+        
+        .toast-success {
+            background-color: #10b981;
+        }
+        
+        .toast-error {
+            background-color: #ef4444;
+        }
+        
+        .toast-warning {
+            background-color: #f59e0b;
+        }
+        
+        .toast-info {
+            background-color: #3b82f6;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes fadeOut {
+            from {
+                opacity: 1;
+            }
+            to {
+                opacity: 0;
+            }
+        }
     </style>
 </head>
 
 <body class="bg-gray-100 min-h-screen">
+    <!-- 消息提示容器 -->
+    <div class="toast-container" id="toast-container"></div>
+    
     <div class="w-full px-6 pt-8 h-full flex flex-col">
         <header class="text-center mb-6">
             <h1 class="text-4xl font-bold text-gray-800 mb-2">局域网分享</h1>
@@ -156,6 +217,43 @@
         const messageInput = document.getElementById('message-input');
         const fileList = document.getElementById('file-list');
         const emptyState = document.getElementById('empty-state');
+        const toastContainer = document.getElementById('toast-container');
+
+        // 消息提示函数
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.textContent = message;
+            
+            toastContainer.appendChild(toast);
+            
+            // 3秒后自动移除
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 3000);
+        }
+        
+        // 显示成功消息
+        function showSuccess(message) {
+            showToast(message, 'success');
+        }
+        
+        // 显示错误消息
+        function showError(message) {
+            showToast(message, 'error');
+        }
+        
+        // 显示警告消息
+        function showWarning(message) {
+            showToast(message, 'warning');
+        }
+        
+        // 显示信息消息
+        function showInfo(message) {
+            showToast(message, 'info');
+        }
 
         // WebSocket 连接
         const ws = new WebSocket(`ws://${window.location.host}/ws`);
@@ -378,7 +476,9 @@
                 
                 if (response.ok) {
                     const result = await response.json();
-                    if (result.success) {
+                    
+                    // 处理上传成功的文件
+                    if (result.files && result.files.length > 0) {
                         result.files.forEach(file => {
                             // 判断文件类型
                             const fileExt = file.file_name.split('.').pop().toLowerCase();
@@ -406,10 +506,21 @@
                                 }));
                             }
                         });
+                        showSuccess(`成功上传 ${result.files.length} 个文件`);
                     }
+                    
+                    // 处理错误信息
+                    if (result.errors && result.errors.length > 0) {
+                        result.errors.forEach(error => {
+                            showError(error);
+                        });
+                    }
+                } else {
+                    showError('上传请求失败');
                 }
             } catch (error) {
                 console.error('上传文件失败:', error);
+                showError('上传文件时发生错误');
             }
             
             // 清空文件输入框
@@ -447,7 +558,7 @@
 
         dropZone.addEventListener('drop', handleDrop, false);
 
-        function handleDrop(e) {
+        async function handleDrop(e) {
             const dt = e.dataTransfer;
             const files = dt.files;
             fileInput.files = files;
@@ -457,14 +568,34 @@
                 const form = document.querySelector('form');
                 const formData = new FormData(form);
 
-                fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                }).then(response => {
+                try {
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
                     if (response.ok) {
+                        const result = await response.json();
                         loadFileList();
+                        
+                        // 处理成功信息
+                        if (result.files && result.files.length > 0) {
+                            showSuccess(`成功上传 ${result.files.length} 个文件`);
+                        }
+                        
+                        // 处理错误信息
+                        if (result.errors && result.errors.length > 0) {
+                            result.errors.forEach(error => {
+                                showError(error);
+                            });
+                        }
+                    } else {
+                        showError('上传请求失败');
                     }
-                });
+                } catch (error) {
+                    console.error('上传文件失败:', error);
+                    showError('上传文件时发生错误');
+                }
             }
         }
     </script>
