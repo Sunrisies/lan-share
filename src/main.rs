@@ -79,13 +79,13 @@ impl Default for Config {
 
 #[tokio::main]
 async fn main() {
-    // Create a broadcast channel for messages
+    // 创建消息广播通道
     let (tx, _rx) = broadcast::channel::<String>(100);
 
-    // Create shared state for connected clients
+    // 创建已连接客户端的共享状态
     let clients: Arc<Mutex<HashMap<String, String>>> = Arc::new(Mutex::new(HashMap::new()));
 
-    // Create shared state for message history
+    // 创建消息历史记录的共享状态
     let message_history: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
 
     // 加载配置文件
@@ -98,7 +98,7 @@ async fn main() {
         start_auto_clean_task(config_clone).await;
     });
 
-    // Build the application router
+    // 构建应用程序路由
     let app = Router::new()
         .route("/ws", get(ws_handler))
         .route("/upload", post(upload_handler))
@@ -109,11 +109,11 @@ async fn main() {
         .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 设置最大100MB
         .with_state((tx, clients, message_history));
 
-    // Run the server
+    // 启动服务器
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
-    println!("Server running on http://{}", addr);
-    println!("File sharing available at http://{}/files", addr);
-    println!("WebSocket chat available at ws://{}/ws", addr);
+    println!("服务器运行在 http://{}", addr);
+    println!("文件分享访问地址 http://{}/files", addr);
+    println!("WebSocket 聊天访问地址 ws://{}/ws", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app.into_make_service())
@@ -292,13 +292,13 @@ async fn handle_socket(
     let mut rx = tx.subscribe();
     let client_id = uuid::Uuid::new_v4().to_string();
 
-    // Add client to the list
+    // 将客户端添加到列表
     {
         let mut clients_lock = clients.lock().unwrap();
         clients_lock.insert(client_id.clone(), String::from("connected"));
     }
 
-    // Send message history to new client
+    // 向新客户端发送消息历史记录
     let history_json = {
         let history = message_history.lock().unwrap();
         if !history.is_empty() {
@@ -319,7 +319,7 @@ async fn handle_socket(
         let _ = sender.send(axum::extract::ws::Message::Text(json)).await;
     }
 
-    // Send current user count to new client
+    // 向新客户端发送当前用户数量
     let user_count = {
         let clients_lock = clients.lock().unwrap();
         clients_lock.len()
@@ -333,10 +333,10 @@ async fn handle_socket(
         .send(axum::extract::ws::Message::Text(count_json.clone()))
         .await;
 
-    // Broadcast user count to all clients
+    // 向所有客户端广播用户数量
     let _ = tx.send(count_json);
 
-    // Spawn a task to broadcast messages to this client
+    // 启动任务向此客户端广播消息
     let mut send_task = tokio::spawn(async move {
         while let Ok(msg) = rx.recv().await {
             if sender
@@ -349,13 +349,13 @@ async fn handle_socket(
         }
     });
 
-    // Spawn a task to receive messages from this client
+    // 启动任务接收来自此客户端的消息
     let tx2 = tx.clone();
     let history_clone = message_history.clone();
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
             if let axum::extract::ws::Message::Text(text) = msg {
-                // Parse the incoming message
+                // 解析传入的消息
                 if let Ok(chat_msg) = serde_json::from_str::<ChatMessage>(&text) {
                     match chat_msg.msg_type.as_str() {
                         "message" | "file" | "image" => {
@@ -364,7 +364,7 @@ async fn handle_socket(
                                 chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
                             let sender_id = chat_msg.sender_id.unwrap_or_default();
 
-                            // Create a message with sender ID and timestamp
+                            // 创建带有发送者ID和时间戳的消息
                             let broadcast_msg = ChatMessage {
                                 msg_type: chat_msg.msg_type,
                                 content: chat_msg.content,
@@ -376,7 +376,7 @@ async fn handle_socket(
                             };
                             let json = serde_json::to_string(&broadcast_msg).unwrap();
 
-                            // Save to history
+                            // 保存到历史记录
                             {
                                 let mut history = history_clone.lock().unwrap();
                                 history.push(json.clone());
@@ -386,7 +386,7 @@ async fn handle_socket(
                                 }
                             }
 
-                            // Broadcast the message
+                            // 广播消息
                             let _ = tx2.send(json);
                         }
                         _ => {}
@@ -396,19 +396,19 @@ async fn handle_socket(
         }
     });
 
-    // Wait for either task to finish
+    // 等待任一任务完成
     tokio::select! {
         _ = (&mut send_task) => recv_task.abort(),
         _ = (&mut recv_task) => send_task.abort(),
     }
 
-    // Remove client from the list
+    // 从列表中移除客户端
     {
         let mut clients_lock = clients.lock().unwrap();
         clients_lock.remove(&client_id);
     }
 
-    // Broadcast updated user count
+    // 广播更新后的用户数量
     let user_count = {
         let clients_lock = clients.lock().unwrap();
         clients_lock.len()
@@ -468,7 +468,7 @@ async fn upload_handler(mut multipart: Multipart) -> impl IntoResponse {
                     continue;
                 }
 
-                // Create shared_files directory if it doesn't exist
+                // 如果 shared_files 目录不存在则创建
                 if let Err(e) = tokio::fs::create_dir_all("shared_files").await {
                     let error_msg = format!("创建目录失败: {}", e);
                     println!("{}", error_msg);
@@ -476,14 +476,14 @@ async fn upload_handler(mut multipart: Multipart) -> impl IntoResponse {
                     continue;
                 }
 
-                // Generate unique filename to avoid conflicts
+                // 生成唯一文件名以避免冲突
                 let unique_name = format!("{}_{}", uuid::Uuid::new_v4(), file_name);
                 let path = format!("shared_files/{}", unique_name);
 
                 // 保存文件
                 match tokio::fs::write(&path, &data).await {
                     Ok(_) => {
-                        println!("Uploaded file: {} ({} bytes)", file_name, data.len());
+                        println!("上传文件: {} ({} 字节)", file_name, data.len());
 
                         uploaded_files.push(serde_json::json!({
                             "file_name": file_name,
@@ -512,7 +512,7 @@ async fn upload_handler(mut multipart: Multipart) -> impl IntoResponse {
         }
     }
 
-    // Return JSON response with file info and errors
+    // 返回包含文件信息和错误的JSON响应
     axum::Json(serde_json::json!({
         "success": !uploaded_files.is_empty(),
         "files": uploaded_files,
