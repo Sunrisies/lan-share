@@ -6,6 +6,62 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v0.2.0] - 2026-03-28
+
+### 🎉 新增扫码加入 & 移动端适配
+
+#### ✨ 新增功能
+
+**扫码加入**
+- 新增二维码扫码功能，手机扫描即可加入聊天
+- 自动获取局域网 IP 地址
+- 支持一键复制访问地址
+- 使用 qrcode.js 生成二维码
+
+**移动端适配**
+- 完整的响应式布局支持
+- 移动端优化的输入框和按钮
+- 弹窗自适应屏幕尺寸
+- 动态视口高度（100dvh）
+
+**用户体验优化**
+- 消息归属持久化（使用 localStorage）
+- 刷新页面后自己的消息仍显示正确
+- ES Module 支持
+- 优化的 toast 提示动画
+
+#### 🐛 Bug 修复
+
+- 修复刷新页面后消息归属错误的问题
+- 修复移动端样式错乱问题
+- 修复 `<script type="module">` 无法调用内联事件的问题
+
+#### 🛠️ 技术改进
+
+- 新增 `local-ip-address` 依赖，用于获取局域网 IP
+- 新增 `/api/server-info` API 接口
+- 使用 localStorage 持久化客户端 ID
+- 前端代码重构，支持 ES Module
+
+#### 📱 移动端优化
+
+| 元素 | 优化内容 |
+|------|----------|
+| 头部 | 紧凑布局，标题自适应 |
+| 在线用户 | 移动端/桌面端分开显示 |
+| 输入框 | 更小的 padding |
+| 发送按钮 | 移动端显示图标 |
+| 弹窗 | 全宽但有边距 |
+| 提示框 | 顶部通栏显示 |
+
+#### 🔗 相关链接
+
+- **GitHub**: [Sunrisies/lan-share](https://github.com/Sunrisies/lan-share)
+- **文档**: [项目介绍](docs/project-introduction.md)
+- **Issues**: [提交问题](https://github.com/Sunrisies/lan-share/issues)
+
+---
+
 ## [v0.1.0] - 2026-03-28
 
 ### 🎉 首个正式版本发布
@@ -74,4 +130,5 @@ cargo build --release
 
 ---
 
+[v0.2.0]: https://github.com/Sunrisies/lan-share/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/Sunrisies/lan-share/releases/tag/v0.1.0
