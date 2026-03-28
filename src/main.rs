@@ -4,9 +4,9 @@ use axum::{
     routing::{get, post},
     Router,
 };
+use chrono::Local;
 use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
-use serde_json;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -31,6 +31,11 @@ struct ChatMessage {
     timestamp: Option<String>,
 }
 
+type AppState = (
+    broadcast::Sender<String>,
+    Arc<Mutex<HashMap<String, String>>>,
+    Arc<Mutex<Vec<String>>>,
+);
 /// 用户数量消息
 #[derive(Debug, Serialize, Deserialize)]
 struct UserCountMessage {
@@ -47,6 +52,24 @@ struct HistoryMessage {
     messages: Vec<ChatMessage>,
 }
 
+/// 配置文件
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct Config {
+    /// 自动清理时间（小时），默认24小时
+    auto_clean_hours: u32,
+    /// 上次清理时间
+    last_clean_time: Option<String>,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            auto_clean_hours: 24,
+            last_clean_time: None,
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() {
     // Create a broadcast channel for messages
@@ -58,10 +81,22 @@ async fn main() {
     // Create shared state for message history
     let message_history: Arc<Mutex<Vec<String>>> = Arc::new(Mutex::new(Vec::new()));
 
+    // 加载配置文件
+    let config = load_config().await;
+    let config: Arc<Mutex<Config>> = Arc::new(Mutex::new(config));
+
+    // 启动定时清理任务
+    let config_clone = config.clone();
+    tokio::spawn(async move {
+        start_auto_clean_task(config_clone).await;
+    });
+
     // Build the application router
     let app = Router::new()
         .route("/ws", get(ws_handler))
         .route("/upload", post(upload_handler))
+        .route("/api/config", get(get_config).post(update_config))
+        .route("/api/clean", post(clean_files))
         .nest_service("/files", ServeDir::new("shared_files"))
         .nest_service("/", ServeDir::new("static"))
         .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 设置最大100MB
@@ -79,13 +114,128 @@ async fn main() {
         .unwrap();
 }
 
+/// 加载配置文件
+async fn load_config() -> Config {
+    let config_path = "config.json";
+    if let Ok(content) = tokio::fs::read_to_string(config_path).await {
+        if let Ok(config) = serde_json::from_str::<Config>(&content) {
+            return config;
+        }
+    }
+    Config::default()
+}
+
+/// 保存配置文件
+async fn save_config(config: &Config) {
+    let config_path = "config.json";
+    if let Ok(json) = serde_json::to_string_pretty(config) {
+        let _ = tokio::fs::write(config_path, json).await;
+    }
+}
+
+/// 定时清理任务
+async fn start_auto_clean_task(config: Arc<Mutex<Config>>) {
+    loop {
+        tokio::time::sleep(tokio::time::Duration::from_secs(60)).await; // 每分钟检查一次
+
+        let should_clean = {
+            let config_lock = config.lock().unwrap();
+            if let Some(last_clean) = &config_lock.last_clean_time {
+                if let Ok(last_time) =
+                    chrono::NaiveDateTime::parse_from_str(last_clean, "%Y-%m-%d %H:%M:%S")
+                {
+                    let now = Local::now().naive_local();
+                    let duration = now.signed_duration_since(last_time);
+                    duration.num_hours() >= config_lock.auto_clean_hours as i64
+                } else {
+                    true
+                }
+            } else {
+                true
+            }
+        };
+
+        if should_clean {
+            println!("执行自动清理...");
+            clean_shared_files().await;
+
+            // 更新上次清理时间
+            let config_to_save = {
+                let mut config_lock = config.lock().unwrap();
+                config_lock.last_clean_time =
+                    Some(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
+                config_lock.clone()
+            };
+            save_config(&config_to_save).await;
+        }
+    }
+}
+
+/// 清理共享文件目录
+async fn clean_shared_files() {
+    let dir = "shared_files";
+    if let Ok(mut entries) = tokio::fs::read_dir(dir).await {
+        while let Ok(Some(entry)) = entries.next_entry().await {
+            let path = entry.path();
+            if path.is_file() {
+                if let Err(e) = tokio::fs::remove_file(&path).await {
+                    println!("删除文件失败 {:?}: {}", path, e);
+                } else {
+                    println!("已删除文件: {:?}", path);
+                }
+            }
+        }
+    }
+}
+
+/// 获取配置
+async fn get_config() -> impl IntoResponse {
+    let config = load_config().await;
+    axum::Json(serde_json::json!({
+        "success": true,
+        "config": config
+    }))
+}
+
+/// 更新配置
+async fn update_config(
+    axum::extract::Json(body): axum::extract::Json<serde_json::Value>,
+) -> impl IntoResponse {
+    if let Some(hours) = body.get("auto_clean_hours").and_then(|v| v.as_u64()) {
+        let mut config = load_config().await;
+        config.auto_clean_hours = hours as u32;
+        save_config(&config).await;
+
+        axum::Json(serde_json::json!({
+            "success": true,
+            "message": "配置已更新"
+        }))
+    } else {
+        axum::Json(serde_json::json!({
+            "success": false,
+            "message": "无效的配置参数"
+        }))
+    }
+}
+
+/// 手动清理文件
+async fn clean_files() -> impl IntoResponse {
+    clean_shared_files().await;
+
+    // 更新上次清理时间
+    let mut config = load_config().await;
+    config.last_clean_time = Some(Local::now().format("%Y-%m-%d %H:%M:%S").to_string());
+    save_config(&config).await;
+
+    axum::Json(serde_json::json!({
+        "success": true,
+        "message": "文件清理完成"
+    }))
+}
+
 async fn ws_handler(
     ws: WebSocketUpgrade,
-    axum::extract::State((tx, clients, message_history)): axum::extract::State<(
-        broadcast::Sender<String>,
-        Arc<Mutex<HashMap<String, String>>>,
-        Arc<Mutex<Vec<String>>>,
-    )>,
+    axum::extract::State((tx, clients, message_history)): axum::extract::State<AppState>,
 ) -> impl IntoResponse {
     ws.on_upgrade(|socket| handle_socket(socket, tx, clients, message_history))
 }
@@ -322,7 +472,7 @@ async fn upload_handler(mut multipart: Multipart) -> impl IntoResponse {
 
     // Return JSON response with file info and errors
     axum::Json(serde_json::json!({
-        "success": uploaded_files.len() > 0,
+        "success": !uploaded_files.is_empty(),
         "files": uploaded_files,
         "errors": errors
     }))

@@ -113,7 +113,13 @@
     <div class="toast-container" id="toast-container"></div>
 
     <div class="w-full px-6 pt-8 h-full flex flex-col">
-        <header class="text-center mb-6">
+        <header class="text-center mb-6 relative">
+            <button onclick="openSettings()" class="absolute right-0 top-0 p-2 text-gray-500 hover:text-gray-700 transition-colors" title="设置">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+            </button>
             <h1 class="text-4xl font-bold text-gray-800 mb-2">局域网聊天</h1>
             <p class="text-gray-600">支持文本、图片和文件的实时聊天</p>
             <div class="mt-2 flex items-center justify-center gap-2">
@@ -170,10 +176,158 @@
         </footer>
     </div>
 
+    <!-- 设置弹窗 -->
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">设置</h2>
+                <button onclick="closeSettings()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="space-y-6">
+                <!-- 自动清理设置 -->
+                <div class="border-b pb-4">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">自动清理设置</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-1">自动清理间隔（小时）</label>
+                            <input type="number" id="clean-hours" min="1" max="168"
+                                class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                placeholder="24">
+                            <p class="text-xs text-gray-500 mt-1">设置多少小时自动清理一次文件（1-168小时）</p>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-sm text-gray-600">上次清理时间:</span>
+                            <span id="last-clean-time" class="text-sm text-gray-800">未知</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 手动清理 -->
+                <div class="border-b pb-4">
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">手动清理</h3>
+                    <p class="text-sm text-gray-600 mb-3">立即清理所有已上传的文件</p>
+                    <button onclick="cleanFiles()"
+                        class="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                        立即清理文件
+                    </button>
+                </div>
+
+                <!-- 保存设置 -->
+                <div class="flex gap-3">
+                    <button onclick="saveSettings()"
+                        class="flex-1 bg-primary hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+                        保存设置
+                    </button>
+                    <button onclick="closeSettings()"
+                        class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors">
+                        取消
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const chatBox = document.getElementById('chat-box');
         const messageInput = document.getElementById('message-input');
         const toastContainer = document.getElementById('toast-container');
+        const settingsModal = document.getElementById('settings-modal');
+
+        // 设置相关函数
+        function openSettings() {
+            loadConfig();
+            settingsModal.classList.remove('hidden');
+            settingsModal.classList.add('flex');
+        }
+
+        function closeSettings() {
+            settingsModal.classList.add('hidden');
+            settingsModal.classList.remove('flex');
+        }
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success && result.config) {
+                        document.getElementById('clean-hours').value = result.config.auto_clean_hours || 24;
+                        if (result.config.last_clean_time) {
+                            document.getElementById('last-clean-time').textContent = result.config.last_clean_time;
+                        } else {
+                            document.getElementById('last-clean-time').textContent = '从未清理';
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('加载配置失败:', error);
+            }
+        }
+
+        async function saveSettings() {
+            const hours = parseInt(document.getElementById('clean-hours').value);
+            if (isNaN(hours) || hours < 1 || hours > 168) {
+                showError('请输入有效的清理间隔（1-168小时）');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ auto_clean_hours: hours })
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        showSuccess('设置已保存');
+                        closeSettings();
+                    } else {
+                        showError(result.message || '保存设置失败');
+                    }
+                } else {
+                    showError('保存设置失败');
+                }
+            } catch (error) {
+                console.error('保存设置失败:', error);
+                showError('保存设置失败');
+            }
+        }
+
+        async function cleanFiles() {
+            if (!confirm('确定要清理所有文件吗？此操作不可撤销！')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/clean', {
+                    method: 'POST'
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        showSuccess('文件清理完成');
+                        loadConfig(); // 刷新配置显示
+                    } else {
+                        showError(result.message || '清理文件失败');
+                    }
+                } else {
+                    showError('清理文件失败');
+                }
+            } catch (error) {
+                console.error('清理文件失败:', error);
+                showError('清理文件失败');
+            }
+        }
 
         // 消息提示函数
         function showToast(message, type = 'info') {
@@ -226,13 +380,13 @@
         ws.onmessage = function (event) {
             try {
                 const data = JSON.parse(event.data);
-                
+
                 // 处理用户数量更新
                 if (data.type === 'user_count') {
                     document.getElementById('user-count').textContent = data.count;
                     return;
                 }
-                
+
                 // 处理历史消息
                 if (data.type === 'history') {
                     if (data.messages && data.messages.length > 0) {
@@ -250,7 +404,7 @@
                     }
                     return;
                 }
-                
+
                 // 检查是否是自己发送的消息
                 const isMyMessage = data.sender_id === myClientId;
 
@@ -280,14 +434,14 @@
             const messageDiv = document.createElement('div');
             messageDiv.className = `mb-1.5 p-1.5 rounded-lg text-xs max-w-xs ${type === 'sent' ? 'bg-primary text-white ml-auto' : 'bg-white border'}`;
             messageDiv.innerHTML = `
-                <div class="flex justify-between items-center"> 
+                <div class="flex justify-between items-center">
                     <div class="text-sm ${type === 'sent' ? 'text-blue-100' : 'text-gray-500'} mb-1">
                         ${type === 'sent' ? '我' : '其他用户'}
                     </div>
                     <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-400'} mt-1 text-right">
                         ${time}
                     </div>
-                </div> 
+                </div>
                 <div>${text}</div>
             `;
             chatBox.appendChild(messageDiv);
@@ -307,14 +461,14 @@
             const messageDiv = document.createElement('div');
             messageDiv.className = `mb-3 p-3 rounded-lg max-w-xs ${type === 'sent' ? 'bg-primary text-white ml-auto' : 'bg-white border'}`;
             messageDiv.innerHTML = `
-                <div class="flex justify-between items-center mb-1"> 
+                <div class="flex justify-between items-center mb-1">
                     <div class="text-sm ${type === 'sent' ? 'text-blue-100' : 'text-gray-500'} mb-1">
                         ${type === 'sent' ? '我' : '其他用户'}
                     </div>
                     <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-400'} mt-1 text-right">
                         ${time}
                     </div>
-                </div> 
+                </div>
                 <div class="mb-2">
                     <img src="${imageUrl}" alt="${fileName}" class="max-w-full max-h-64 rounded cursor-pointer" onclick="window.open('${imageUrl}', '_blank')">
                 </div>
@@ -329,14 +483,14 @@
             const messageDiv = document.createElement('div');
             messageDiv.className = `mb-3 p-3 rounded-lg max-w-xs ${type === 'sent' ? 'bg-primary text-white ml-auto' : 'bg-white border'}`;
             messageDiv.innerHTML = `
-                <div class="flex justify-between items-center mb-1"> 
+                <div class="flex justify-between items-center mb-1">
                     <div class="text-sm ${type === 'sent' ? 'text-blue-100' : 'text-gray-500'} mb-1">
                         ${type === 'sent' ? '我' : '其他用户'}
                     </div>
                     <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-400'} mt-1 text-right">
                         ${time}
                     </div>
-                </div> 
+                </div>
                 <div class="flex items-center gap-2">
                     <svg class="w-6 h-6 ${type === 'sent' ? 'text-blue-200' : 'text-gray-500'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
