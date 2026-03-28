@@ -27,8 +27,8 @@
 </head>
 
 <body class="bg-gray-100 min-h-screen">
-    <div class="w-full px-6 py-8">
-        <header class="text-center mb-12">
+    <div class="w-full px-6 pt-8 h-full flex flex-col">
+        <header class="text-center mb-6">
             <h1 class="text-4xl font-bold text-gray-800 mb-2">局域网分享</h1>
             <p class="text-gray-600">文件分享与实时聊天</p>
         </header>
@@ -118,7 +118,7 @@
             </div>
         </div>
 
-        <footer class="text-center mt-12 text-gray-500 text-sm">
+        <footer class="text-center mt-6 text-gray-500 text-sm">
             <p>局域网分享工具 - 基于 Rust + Axum</p>
         </footer>
     </div>
@@ -137,6 +137,7 @@
         ws.onopen = function () {
             // 发送注册消息，包含客户端ID
             ws.send(JSON.stringify({ type: 'register', sender_id: myClientId }));
+            console.log("成功连接")
             addSystemMessage('已连接到聊天服务器');
         };
 
@@ -166,13 +167,15 @@
             const messageDiv = document.createElement('div');
             messageDiv.className = `mb-3 p-3 rounded-lg max-w-xs ${type === 'sent' ? 'bg-primary text-white ml-auto' : 'bg-white border'}`;
             messageDiv.innerHTML = `
-                <div class="text-sm ${type === 'sent' ? 'text-blue-100' : 'text-gray-500'} mb-1">
-                    ${type === 'sent' ? '我' : '其他用户'}
-                </div>
+                <div class="flex justify-between items-center mb-1"> 
+                    <div class="text-sm ${type === 'sent' ? 'text-blue-100' : 'text-gray-500'} mb-1">
+                        ${type === 'sent' ? '我' : '其他用户'}
+                    </div>
+                    <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-400'} mt-1 text-right">
+                        ${new Date().toLocaleTimeString()}
+                    </div>
+                </div> 
                 <div>${text}</div>
-                <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-400'} mt-1 text-right">
-                    ${new Date().toLocaleTimeString()}
-                </div>
             `;
             chatBox.appendChild(messageDiv);
             chatBox.scrollTop = chatBox.scrollHeight;

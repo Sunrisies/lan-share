@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
 use tower_http::services::ServeDir;
 
+/// 接收消息
 #[derive(Debug, Serialize, Deserialize)]
 struct ChatMessage {
     #[serde(rename = "type")]
@@ -19,6 +20,14 @@ struct ChatMessage {
     content: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     sender_id: Option<String>,
+}
+
+/// 接收注册
+#[derive(Debug, Serialize, Deserialize)]
+struct RegisterMessage {
+    #[serde(rename = "type")]
+    msg_type: String,
+    sender_id: String,
 }
 
 #[tokio::main]
@@ -67,7 +76,6 @@ async fn handle_socket(
     let (mut sender, mut receiver) = socket.split();
     let mut rx = tx.subscribe();
     let client_id = uuid::Uuid::new_v4().to_string();
-
     // Add client to the list
     {
         let mut clients_lock = clients.lock().unwrap();
@@ -94,18 +102,19 @@ async fn handle_socket(
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
             if let axum::extract::ws::Message::Text(text) = msg {
+                if let Ok(chat_msg) = serde_json::from_str::<RegisterMessage>(&text) {
+                    // 客户端发送的注册消息，包含client_id
+                    client_id_from_client = Some(chat_msg.sender_id);
+                }
                 // Parse the incoming message
                 if let Ok(chat_msg) = serde_json::from_str::<ChatMessage>(&text) {
                     match chat_msg.msg_type.as_str() {
-                        "register" => {
-                            // 客户端发送的注册消息，包含client_id
-                            if let Some(cid) = chat_msg.sender_id {
-                                client_id_from_client = Some(cid);
-                            }
-                        }
                         "message" => {
+                            println!("client_id_from_client:{:?}", client_id_from_client);
                             // 使用客户端发送的ID，如果没有则使用服务器生成的ID
-                            let sender_id = client_id_from_client.clone().unwrap_or_else(|| client_id_clone.clone());
+                            let sender_id = client_id_from_client
+                                .clone()
+                                .unwrap_or_else(|| client_id_clone.clone());
                             // Create a message with sender ID
                             let broadcast_msg = ChatMessage {
                                 msg_type: "message".to_string(),
