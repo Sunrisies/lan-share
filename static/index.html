@@ -555,8 +555,13 @@
 
         // WebSocket 连接
         const ws = new WebSocket(`ws://${window.location.host}/ws`);
-        // 生成客户端ID
-        let myClientId = 'client_' + Math.random().toString(36).substr(2, 9);
+
+        // 从 localStorage 获取或生成客户端ID（刷新后保持不变）
+        let myClientId = localStorage.getItem('lan-share-client-id');
+        if (!myClientId) {
+            myClientId = 'client_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+            localStorage.setItem('lan-share-client-id', myClientId);
+        }
 
         ws.onopen = function () {
             // 发送注册消息，包含客户端ID
