@@ -1,17 +1,24 @@
 use axum::{
+    body::Body,
     extract::{DefaultBodyLimit, Multipart, WebSocketUpgrade},
-    response::IntoResponse,
+    http::{header, StatusCode, Uri},
+    response::{IntoResponse, Response},
     routing::{get, post},
     Router,
 };
 use chrono::Local;
 use futures::{SinkExt, StreamExt};
+use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
 use tower_http::services::ServeDir;
+
+#[derive(RustEmbed)]
+#[folder = "static/"]
+struct StaticAssets;
 
 /// 接收消息
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -98,7 +105,7 @@ async fn main() {
         .route("/api/config", get(get_config).post(update_config))
         .route("/api/clean", post(clean_files))
         .nest_service("/files", ServeDir::new("shared_files"))
-        .nest_service("/", ServeDir::new("static"))
+        .fallback(get(static_handler))
         .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 设置最大100MB
         .with_state((tx, clients, message_history));
 
@@ -112,6 +119,41 @@ async fn main() {
     axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
+}
+
+/// 处理静态文件
+async fn static_handler(uri: Uri) -> impl IntoResponse {
+    let path = uri.path().trim_start_matches('/');
+
+    // 如果路径为空，返回index.html
+    let path = if path.is_empty() { "index.html" } else { path };
+
+    // 尝试获取文件
+    match StaticAssets::get(path) {
+        Some(content) => {
+            let mime = mime_guess::from_path(path).first_or_octet_stream();
+            Response::builder()
+                .header(header::CONTENT_TYPE, mime.as_ref())
+                .body(Body::from(content.data))
+                .unwrap()
+        }
+        None => {
+            // 如果找不到文件，返回index.html（用于SPA路由）
+            match StaticAssets::get("index.html") {
+                Some(content) => {
+                    let mime = mime_guess::from_path("index.html").first_or_octet_stream();
+                    Response::builder()
+                        .header(header::CONTENT_TYPE, mime.as_ref())
+                        .body(Body::from(content.data))
+                        .unwrap()
+                }
+                None => Response::builder()
+                    .status(StatusCode::NOT_FOUND)
+                    .body(Body::from("404 Not Found"))
+                    .unwrap(),
+            }
+        }
+    }
 }
 
 /// 加载配置文件

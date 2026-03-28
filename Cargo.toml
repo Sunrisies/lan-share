@@ -15,3 +15,5 @@ tower-http = { version = "0.5", features = ["fs"] }
 futures = "0.3"
 uuid = { version = "1.0", features = ["v4"] }
 chrono = "0.4"
+rust-embed = { version = "8.0", features = ["axum"] }
+mime_guess = "2.0"
