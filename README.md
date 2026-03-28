@@ -1,83 +1,194 @@
-# Geektime Rust 语言训练营
+# 局域网聊天工具
 
-## 环境设置
+一个基于 Rust + Axum 的局域网实时聊天工具，支持文本、图片和文件分享。
 
-### 安装 Rust
+## 功能特性
 
-```bash
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
+- ✅ 实时文本聊天
+- ✅ 图片上传和预览
+- ✅ 文件上传和下载
+- ✅ 在线用户数量显示
+- ✅ 消息历史记录
+- ✅ 消息时间戳
+- ✅ 文件大小限制提示（100MB）
+- ✅ 消息提示弹窗
+- ✅ 自动滚动到最新消息
 
-### 安装 VSCode 插件
+## 技术栈
 
-- crates: Rust 包管理
-- Even Better TOML: TOML 文件支持
-- Better Comments: 优化注释显示
-- Error Lens: 错误提示优化
-- GitLens: Git 增强
-- Github Copilot: 代码提示
-- indent-rainbow: 缩进显示优化
-- Prettier - Code formatter: 代码格式化
-- REST client: REST API 调试
-- rust-analyzer: Rust 语言支持
-- Rust Test lens: Rust 测试支持
-- Rust Test Explorer: Rust 测试概览
-- TODO Highlight: TODO 高亮
-- vscode-icons: 图标优化
-- YAML: YAML 文件支持
+- **后端**: Rust + Axum + Tokio + WebSocket
+- **前端**: HTML + Tailwind CSS + JavaScript
+- **通信**: WebSocket 实时通信
+- **文件处理**: Multipart 文件上传
 
-### 安装 cargo generate
+## 快速开始
 
-cargo generate 是一个用于生成项目模板的工具。它可以使用已有的 github repo 作为模版生成新的项目。
+### 环境要求
 
-```bash
-cargo install cargo-generate
-```
+- Rust 1.70+
+- Cargo
 
-在我们的课程中，新的项目会使用 `tyr-rust-bootcamp/template` 模版生成基本的代码：
+### 安装
 
 ```bash
-cargo generate tyr-rust-bootcamp/template
+# 克隆项目
+git clone <repository-url>
+cd synchronization
+
+# 编译项目
+cargo build --release
+
+# 运行项目
+cargo run
 ```
 
-### 安装 pre-commit
+### 访问
 
-pre-commit 是一个代码检查工具，可以在提交代码前进行代码检查。
+服务器启动后，访问 http://localhost:3000
 
-```bash
-pipx install pre-commit
+## 使用说明
+
+### 聊天功能
+
+1. **发送文本消息**
+
+   - 在输入框中输入消息
+   - 按 Enter 键或点击"发送"按钮
+2. **发送图片**
+
+   - 点击附件按钮
+   - 选择图片文件
+   - 图片会自动上传并显示预览
+3. **发送文件**
+
+   - 点击附件按钮
+   - 选择任意文件
+   - 文件会自动上传，其他用户可下载
+
+### 界面说明
+
+- **在线用户数量**: 页面顶部显示当前在线用户数
+- **消息历史**: 新用户加入时可查看之前的消息
+- **时间戳**: 每条消息显示发送时间
+- **消息提示**: 操作成功或失败会显示提示弹窗
+
+## 配置说明
+
+### 修改端口
+
+编辑 `src/main.rs` 文件：
+
+```rust
+let addr = SocketAddr::from(([0, 0, 0, 0], 3000)); // 修改端口号
 ```
 
-安装成功后运行 `pre-commit install` 即可。
+### 修改文件大小限制
 
-### 安装 Cargo deny
+编辑 `src/main.rs` 文件：
 
-Cargo deny 是一个 Cargo 插件，可以用于检查依赖的安全性。
-
-```bash
-cargo install --locked cargo-deny
+```rust
+const MAX_FILE_SIZE: usize = 100 * 1024 * 1024; // 修改大小限制（字节）
 ```
 
-### 安装 typos
+### 修改历史消息数量
 
-typos 是一个拼写检查工具。
+编辑 `src/main.rs` 文件：
 
-```bash
-cargo install typos-cli
+```rust
+if history.len() > 100 { // 修改历史消息数量
+    history.remove(0);
+}
 ```
 
-### 安装 git cliff
+## 项目结构
 
-git cliff 是一个生成 changelog 的工具。
-
-```bash
-cargo install git-cliff
+```
+synchronization/
+├── src/
+│   └── main.rs          # 后端主程序
+├── static/
+│   └── index.html       # 前端界面
+├── shared_files/        # 上传文件存储目录
+├── Cargo.toml           # 项目依赖
+└── README.md            # 项目文档
 ```
 
-### 安装 cargo nextest
+## API 接口
 
-cargo nextest 是一个 Rust 增强测试工具。
+### WebSocket
 
-```bash
-cargo install cargo-nextest --locked
+- **连接地址**: `ws://localhost:3000/ws`
+- **消息格式**: JSON
+
+#### 消息类型
+
+1. **文本消息**
+
+```json
+{
+  "type": "message",
+  "content": "消息内容",
+  "sender_id": "用户ID"
+}
 ```
+
+2. **图片消息**
+
+```json
+{
+  "type": "image",
+  "content": "",
+  "sender_id": "用户ID",
+  "file_url": "/files/xxx.jpg",
+  "file_name": "图片.jpg",
+  "file_type": "image"
+}
+```
+
+3. **文件消息**
+
+```json
+{
+  "type": "file",
+  "content": "",
+  "sender_id": "用户ID",
+  "file_url": "/files/xxx.zip",
+  "file_name": "文件.zip",
+  "file_type": "file"
+}
+```
+
+### HTTP
+
+- `GET /` - 主页面
+- `POST /upload` - 文件上传
+- `GET /files/{filename}` - 文件下载
+- `GET /files` - 文件列表
+
+## 常见问题
+
+### 1. 文件上传失败
+
+- 检查文件大小是否超过 100MB
+- 检查网络连接是否正常
+- 查看服务器控制台错误信息
+
+### 2. WebSocket 连接失败
+
+- 确保服务器正在运行
+- 检查防火墙设置
+- 确认端口未被占用
+
+### 3. 无法访问其他设备
+
+- 确保所有设备在同一局域网
+- 检查服务器绑定地址（默认 0.0.0.0）
+- 检查防火墙设置
+
+## 许可证
+
+MIT License
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request！
