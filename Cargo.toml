@@ -17,3 +17,4 @@ uuid = { version = "1.0", features = ["v4"] }
 chrono = "0.4"
 rust-embed = { version = "8.0", features = ["axum"] }
 mime_guess = "2.0"
+local-ip-address = "0.6"

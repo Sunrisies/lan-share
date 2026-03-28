@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>局域网分享</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script> -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/lib/browser.min.js"></script> -->
+
     <script>
         tailwind.config = {
             theme: {
@@ -114,16 +117,31 @@
 
     <div class="w-full px-6 pt-8 h-full flex flex-col">
         <header class="text-center mb-6 relative">
-            <button onclick="openSettings()" class="absolute right-0 top-0 p-2 text-gray-500 hover:text-gray-700 transition-colors" title="设置">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                </svg>
-            </button>
+            <div class="absolute right-0 top-0 flex gap-2">
+                <button onclick="openQRCode()" class="p-2 text-gray-500 hover:text-gray-700 transition-colors"
+                    title="扫码加入">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z">
+                        </path>
+                    </svg>
+                </button>
+                <button onclick="openSettings()" class="p-2 text-gray-500 hover:text-gray-700 transition-colors"
+                    title="设置">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                        </path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </button>
+            </div>
             <h1 class="text-4xl font-bold text-gray-800 mb-2">局域网聊天</h1>
             <p class="text-gray-600">支持文本、图片和文件的实时聊天</p>
             <div class="mt-2 flex items-center justify-center gap-2">
-                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                <span
+                    class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
                     <span class="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
                     在线用户: <span id="user-count">0</span>
                 </span>
@@ -183,7 +201,8 @@
                 <h2 class="text-2xl font-bold text-gray-800">设置</h2>
                 <button onclick="closeSettings()" class="text-gray-500 hover:text-gray-700">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
                     </svg>
                 </button>
             </div>
@@ -232,7 +251,43 @@
         </div>
     </div>
 
-    <script>
+    <!-- 二维码弹窗 -->
+    <div id="qrcode-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-bold text-gray-800">扫码加入</h2>
+                <button onclick="closeQRCode()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="text-center">
+                <p class="text-gray-600 mb-4">使用手机扫描下方二维码加入聊天</p>
+
+                <div class="flex justify-center mb-4">
+                    <div id="qrcode-container" class="bg-white p-4 rounded-lg shadow-inner border">
+                        <!-- 二维码将在这里生成 -->
+                    </div>
+                </div>
+
+                <div class="text-sm text-gray-500 mb-4">
+                    <p>或访问地址：</p>
+                    <p id="server-url" class="font-mono text-primary break-all"></p>
+                </div>
+
+                <button onclick="copyUrl()"
+                    class="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg transition-colors">
+                    复制地址
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import QRCode from 'https://cdn.jsdelivr.net/npm/qrcode@1.5.4/+esm'
         const chatBox = document.getElementById('chat-box');
         const messageInput = document.getElementById('message-input');
         const toastContainer = document.getElementById('toast-container');
@@ -326,6 +381,87 @@
             } catch (error) {
                 console.error('清理文件失败:', error);
                 showError('清理文件失败');
+            }
+        }
+
+        // 二维码相关函数
+        const qrcodeModal = document.getElementById('qrcode-modal');
+        let currentServerUrl = '';
+
+        async function openQRCode() {
+            try {
+                // 获取服务器信息
+                const response = await fetch('/api/server-info');
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success && result.urls && result.urls.length > 0) {
+                        currentServerUrl = result.urls[0];
+                        generateQRCode(currentServerUrl);
+                        document.getElementById('server-url').textContent = currentServerUrl;
+                    } else {
+                        showError('无法获取服务器地址');
+                        return;
+                    }
+                } else {
+                    showError('无法获取服务器地址');
+                    return;
+                }
+            } catch (error) {
+                console.error('获取服务器信息失败:', error);
+                showError('获取服务器信息失败');
+                return;
+            }
+
+            qrcodeModal.classList.remove('hidden');
+            qrcodeModal.classList.add('flex');
+        }
+
+        function closeQRCode() {
+            qrcodeModal.classList.add('hidden');
+            qrcodeModal.classList.remove('flex');
+        }
+
+        function generateQRCode(url) {
+            const container = document.getElementById('qrcode-container');
+            container.innerHTML = '';
+
+            QRCode.toDataURL(url, {
+                width: 200,
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#ffffff'
+                }
+            }, function (error, dataUrl) {
+                if (error) {
+                    console.error('生成二维码失败:', error);
+                    container.innerHTML = '<p class="text-red-500">生成二维码失败</p>';
+                    return;
+                }
+
+                const img = document.createElement('img');
+                img.src = dataUrl;
+                img.alt = '扫码加入';
+                img.className = 'w-48 h-48';
+                container.appendChild(img);
+            });
+        }
+
+        function copyUrl() {
+            if (currentServerUrl) {
+                navigator.clipboard.writeText(currentServerUrl).then(() => {
+                    showSuccess('地址已复制到剪贴板');
+                }).catch(err => {
+                    console.error('复制失败:', err);
+                    // 备用方案
+                    const textArea = document.createElement('textarea');
+                    textArea.value = currentServerUrl;
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+                    showSuccess('地址已复制到剪贴板');
+                });
             }
         }
 
@@ -604,6 +740,16 @@
             // 清空文件输入框
             chatFileInput.value = '';
         }
+
+        // 将函数挂载到 window 对象，以便 onclick 可以调用
+        window.openSettings = openSettings;
+        window.closeSettings = closeSettings;
+        window.saveSettings = saveSettings;
+        window.cleanFiles = cleanFiles;
+        window.openQRCode = openQRCode;
+        window.closeQRCode = closeQRCode;
+        window.copyUrl = copyUrl;
+        window.sendMessage = sendMessage;
     </script>
 </body>
 

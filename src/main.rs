@@ -104,6 +104,7 @@ async fn main() {
         .route("/upload", post(upload_handler))
         .route("/api/config", get(get_config).post(update_config))
         .route("/api/clean", post(clean_files))
+        .route("/api/server-info", get(get_server_info))
         .nest_service("/files", ServeDir::new("shared_files"))
         .fallback(get(static_handler))
         .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 设置最大100MB
@@ -237,6 +238,56 @@ async fn get_config() -> impl IntoResponse {
         "success": true,
         "config": config
     }))
+}
+
+/// 获取服务器信息（包括局域网IP）
+async fn get_server_info() -> impl IntoResponse {
+    let local_ips = get_local_ip_addresses();
+    let port = 3000;
+
+    axum::Json(serde_json::json!({
+        "success": true,
+        "port": port,
+        "ips": local_ips,
+        "urls": local_ips.iter().map(|ip| format!("http://{}:{}", ip, port)).collect::<Vec<_>>()
+    }))
+}
+
+/// 获取本机局域网IP地址
+fn get_local_ip_addresses() -> Vec<String> {
+    let mut ips = Vec::new();
+
+    // 尝试通过连接外部地址获取本机IP
+    if let Ok(socket) = std::net::UdpSocket::bind("0.0.0.0:0") {
+        if socket.connect("8.8.8.8:80").is_ok() {
+            if let Ok(addr) = socket.local_addr() {
+                let ip = addr.ip().to_string();
+                if !ip.starts_with("127.") {
+                    ips.push(ip);
+                }
+            }
+        }
+    }
+
+    // 如果上面方法失败，尝试获取所有网络接口
+    if ips.is_empty() {
+        if let Ok(interfaces) = local_ip_address::list_afinet_netifas() {
+            for (_, ip) in interfaces {
+                let ip_str = ip.to_string();
+                // 只保留IPv4且不是回环地址
+                if ip.is_ipv4() && !ip_str.starts_with("127.") {
+                    ips.push(ip_str);
+                }
+            }
+        }
+    }
+
+    // 如果还是没有，返回localhost
+    if ips.is_empty() {
+        ips.push("localhost".to_string());
+    }
+
+    ips
 }
 
 /// 更新配置
