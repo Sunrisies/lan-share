@@ -1,11 +1,12 @@
 use axum::{
     extract::{Multipart, WebSocketUpgrade},
-    response::{Html, IntoResponse},
+    response::IntoResponse,
     routing::{get, post},
     Router,
 };
 use futures::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
+use serde_json;
 use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -20,14 +21,12 @@ struct ChatMessage {
     content: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     sender_id: Option<String>,
-}
-
-/// 接收注册
-#[derive(Debug, Serialize, Deserialize)]
-struct RegisterMessage {
-    #[serde(rename = "type")]
-    msg_type: String,
-    sender_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    file_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    file_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    file_type: Option<String>,
 }
 
 #[tokio::main]
@@ -97,29 +96,23 @@ async fn handle_socket(
 
     // Spawn a task to receive messages from this client
     let tx2 = tx.clone();
-    let client_id_clone = client_id.clone();
-    let mut client_id_from_client: Option<String> = None;
     let mut recv_task = tokio::spawn(async move {
         while let Some(Ok(msg)) = receiver.next().await {
             if let axum::extract::ws::Message::Text(text) = msg {
-                if let Ok(chat_msg) = serde_json::from_str::<RegisterMessage>(&text) {
-                    // 客户端发送的注册消息，包含client_id
-                    client_id_from_client = Some(chat_msg.sender_id);
-                }
                 // Parse the incoming message
                 if let Ok(chat_msg) = serde_json::from_str::<ChatMessage>(&text) {
                     match chat_msg.msg_type.as_str() {
-                        "message" => {
-                            println!("client_id_from_client:{:?}", client_id_from_client);
-                            // 使用客户端发送的ID，如果没有则使用服务器生成的ID
-                            let sender_id = client_id_from_client
-                                .clone()
-                                .unwrap_or_else(|| client_id_clone.clone());
+                        "message" | "file" | "image" => {
+                            // 直接使用消息中的 sender_id
+                            let sender_id = chat_msg.sender_id.unwrap_or_default();
                             // Create a message with sender ID
                             let broadcast_msg = ChatMessage {
-                                msg_type: "message".to_string(),
+                                msg_type: chat_msg.msg_type,
                                 content: chat_msg.content,
                                 sender_id: Some(sender_id),
+                                file_url: chat_msg.file_url,
+                                file_name: chat_msg.file_name,
+                                file_type: chat_msg.file_type,
                             };
                             let json = serde_json::to_string(&broadcast_msg).unwrap();
                             let _ = tx2.send(json);
@@ -145,6 +138,8 @@ async fn handle_socket(
 }
 
 async fn upload_handler(mut multipart: Multipart) -> impl IntoResponse {
+    let mut uploaded_files = Vec::new();
+    
     while let Some(field) = multipart.next_field().await.unwrap() {
         let file_name = field.file_name().unwrap().to_string();
         let data = field.bytes().await.unwrap();
@@ -152,12 +147,23 @@ async fn upload_handler(mut multipart: Multipart) -> impl IntoResponse {
         // Create shared_files directory if it doesn't exist
         tokio::fs::create_dir_all("shared_files").await.unwrap();
 
-        // Save the file
-        let path = format!("shared_files/{}", file_name);
+        // Generate unique filename to avoid conflicts
+        let unique_name = format!("{}_{}", uuid::Uuid::new_v4(), file_name);
+        let path = format!("shared_files/{}", unique_name);
         tokio::fs::write(&path, &data).await.unwrap();
 
         println!("Uploaded file: {} ({} bytes)", file_name, data.len());
+        
+        uploaded_files.push(serde_json::json!({
+            "file_name": file_name,
+            "file_url": format!("/files/{}", unique_name),
+            "file_size": data.len()
+        }));
     }
 
-    Html("File uploaded successfully! <a href='/'>Go back</a>")
+    // Return JSON response with file info
+    axum::Json(serde_json::json!({
+        "success": true,
+        "files": uploaded_files
+    }))
 }

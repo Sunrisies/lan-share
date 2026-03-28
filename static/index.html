@@ -20,8 +20,28 @@
     </script>
     <style>
         .chat-container {
-            height: calc(100vh - 400px);
-            min-height: 300px;
+            height: 400px;
+            max-height: 400px;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+        }
+        
+        /* 确保聊天消息样式正确 */
+        .chat-message {
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        
+        /* 防止页面整体滚动 */
+        html, body {
+            overflow: hidden;
+            height: 100%;
+        }
+        
+        /* 确保主要内容区域可滚动 */
+        .main-content {
+            overflow-y: auto;
+            height: calc(100vh - 100px);
         }
     </style>
 </head>
@@ -109,12 +129,20 @@
                 <div class="flex gap-2">
                     <input type="text" id="message-input" placeholder="输入消息..."
                         class="flex-1 border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <input type="file" id="chat-file-input" class="hidden" multiple accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar">
+                    <button onclick="document.getElementById('chat-file-input').click()"
+                        class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-4 rounded-lg transition-colors"
+                        title="发送文件">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+                        </svg>
+                    </button>
                     <button onclick="sendMessage()"
                         class="bg-primary hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
                         发送
                     </button>
                 </div>
-                <p class="text-sm text-gray-500 mt-2">按 Enter 键发送消息</p>
+                <p class="text-sm text-gray-500 mt-2">按 Enter 键发送消息，点击附件按钮发送文件</p>
             </div>
         </div>
 
@@ -144,10 +172,15 @@
         ws.onmessage = function (event) {
             try {
                 const data = JSON.parse(event.data);
+                // 检查是否是自己发送的消息
+                const isMyMessage = data.sender_id === myClientId;
+                
                 if (data.type === 'message') {
-                    // 检查是否是自己发送的消息
-                    const isMyMessage = data.sender_id === myClientId;
                     addMessage(data.content, isMyMessage ? 'sent' : 'received');
+                } else if (data.type === 'image') {
+                    addImageMessage(data.file_url, data.file_name, isMyMessage ? 'sent' : 'received');
+                } else if (data.type === 'file') {
+                    addFileMessage(data.file_url, data.file_name, isMyMessage ? 'sent' : 'received');
                 }
             } catch (e) {
                 // 如果不是JSON格式，作为普通消息处理
@@ -188,12 +221,62 @@
             chatBox.appendChild(messageDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
+        
+        function addImageMessage(imageUrl, fileName, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `mb-3 p-3 rounded-lg max-w-xs ${type === 'sent' ? 'bg-primary text-white ml-auto' : 'bg-white border'}`;
+            messageDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-1"> 
+                    <div class="text-sm ${type === 'sent' ? 'text-blue-100' : 'text-gray-500'} mb-1">
+                        ${type === 'sent' ? '我' : '其他用户'}
+                    </div>
+                    <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-400'} mt-1 text-right">
+                        ${new Date().toLocaleTimeString()}
+                    </div>
+                </div> 
+                <div class="mb-2">
+                    <img src="${imageUrl}" alt="${fileName}" class="max-w-full max-h-64 rounded cursor-pointer" onclick="window.open('${imageUrl}', '_blank')">
+                </div>
+                <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-500'}">${fileName}</div>
+            `;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        
+        function addFileMessage(fileUrl, fileName, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `mb-3 p-3 rounded-lg max-w-xs ${type === 'sent' ? 'bg-primary text-white ml-auto' : 'bg-white border'}`;
+            messageDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-1"> 
+                    <div class="text-sm ${type === 'sent' ? 'text-blue-100' : 'text-gray-500'} mb-1">
+                        ${type === 'sent' ? '我' : '其他用户'}
+                    </div>
+                    <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-400'} mt-1 text-right">
+                        ${new Date().toLocaleTimeString()}
+                    </div>
+                </div> 
+                <div class="flex items-center gap-2">
+                    <svg class="w-6 h-6 ${type === 'sent' ? 'text-blue-200' : 'text-gray-500'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <a href="${fileUrl}" download="${fileName}" class="${type === 'sent' ? 'text-blue-100 hover:text-white' : 'text-primary hover:text-blue-700'} font-medium">
+                        ${fileName}
+                    </a>
+                </div>
+            `;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
 
         function sendMessage() {
             const message = messageInput.value.trim();
             if (message && ws.readyState === WebSocket.OPEN) {
-                // 不在本地添加消息，等待服务器广播回来
-                ws.send(JSON.stringify({ type: 'message', content: message }));
+                // 发送消息时包含客户端ID
+                ws.send(JSON.stringify({ 
+                    type: 'message', 
+                    content: message,
+                    sender_id: myClientId
+                }));
                 messageInput.value = '';
             }
         }
@@ -260,10 +343,79 @@
 
         // 页面加载时获取文件列表
         loadFileList();
+        
+        // 初始化聊天容器滚动到底部
+        function initChatScroll() {
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        
+        // 页面加载完成后初始化滚动
+        window.addEventListener('load', initChatScroll);
 
         // 每5秒刷新文件列表
         setInterval(loadFileList, 5000);
 
+        // 聊天文件上传
+        const chatFileInput = document.getElementById('chat-file-input');
+        chatFileInput.addEventListener('change', function(e) {
+            const files = e.target.files;
+            if (files.length > 0) {
+                uploadChatFiles(files);
+            }
+        });
+        
+        async function uploadChatFiles(files) {
+            const formData = new FormData();
+            for (let i = 0; i < files.length; i++) {
+                formData.append('file', files[i]);
+            }
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        result.files.forEach(file => {
+                            // 判断文件类型
+                            const fileExt = file.file_name.split('.').pop().toLowerCase();
+                            const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'];
+                            
+                            if (imageExts.includes(fileExt)) {
+                                // 发送图片消息
+                                ws.send(JSON.stringify({
+                                    type: 'image',
+                                    content: '',
+                                    sender_id: myClientId,
+                                    file_url: file.file_url,
+                                    file_name: file.file_name,
+                                    file_type: 'image'
+                                }));
+                            } else {
+                                // 发送文件消息
+                                ws.send(JSON.stringify({
+                                    type: 'file',
+                                    content: '',
+                                    sender_id: myClientId,
+                                    file_url: file.file_url,
+                                    file_name: file.file_name,
+                                    file_type: 'file'
+                                }));
+                            }
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('上传文件失败:', error);
+            }
+            
+            // 清空文件输入框
+            chatFileInput.value = '';
+        }
+        
         // 拖拽上传支持
         const dropZone = document.querySelector('.border-dashed');
         const fileInput = document.getElementById('file-input');
