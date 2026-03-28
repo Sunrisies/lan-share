@@ -1,82 +1,143 @@
-# 局域网聊天工具
+# 局域网聊天工具 (LAN-Share)
 
-一个基于 Rust + Axum 的局域网实时聊天工具，支持文本、图片和文件分享。
+一个基于 Rust + Axum 构建的高性能局域网实时聊天工具，支持文本、图片和文件分享。
 
-## 功能特性
+[![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg)](https://www.rust-lang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![GitHub](https://img.shields.io/badge/GitHub-Sunrisies/lan--share-blue.svg)](https://github.com/Sunrisies/lan-share)
 
-- ✅ 实时文本聊天
-- ✅ 图片上传和预览
-- ✅ 文件上传和下载
-- ✅ 在线用户数量显示
-- ✅ 消息历史记录
+---
+
+## ✨ 功能特性
+
+### 💬 实时通信
+- ✅ 基于 WebSocket 的实时消息推送
+- ✅ 毫秒级消息响应
+- ✅ 消息自动滚动到最新
+
+### 📁 多媒体支持
+- ✅ 文本消息
+- ✅ 图片上传和预览（支持 JPG、PNG、GIF、WebP）
+- ✅ 文件上传和下载（最大 100MB）
+
+### 👥 用户管理
+- ✅ 在线用户数量实时显示
+- ✅ 消息历史记录（最多 100 条）
 - ✅ 消息时间戳
-- ✅ 文件大小限制提示（100MB）
+
+### ⚙️ 智能管理
+- ✅ 可配置的自动清理任务
+- ✅ 手动清理功能
+- ✅ 图形化设置界面
+
+### 🎨 用户体验
+- ✅ 现代化 UI 设计（Tailwind CSS）
 - ✅ 消息提示弹窗
-- ✅ 自动滚动到最新消息
+- ✅ 文件大小限制提示
 
-## 技术栈
+---
 
-- **后端**: Rust + Axum + Tokio + WebSocket
-- **前端**: HTML + Tailwind CSS + JavaScript
-- **通信**: WebSocket 实时通信
-- **文件处理**: Multipart 文件上传
-
-## 快速开始
+## 🚀 快速开始
 
 ### 环境要求
 
 - Rust 1.70+
 - Cargo
 
-### 安装
+### 安装 Rust
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+### 运行项目
 
 ```bash
 # 克隆项目
-git clone <repository-url>
-cd synchronization
+git clone https://github.com/Sunrisies/lan-share.git
+cd lan-share
 
-# 编译项目
-cargo build --release
-
-# 运行项目
+# 编译运行
 cargo run
 ```
 
-### 访问
+### 访问应用
 
-服务器启动后，访问 http://localhost:3000
+打开浏览器访问：http://localhost:3000
 
-## 使用说明
+局域网内其他设备访问：http://YOUR_IP:3000
 
-### 聊天功能
+---
 
-1. **发送文本消息**
+## 📖 使用说明
 
-   - 在输入框中输入消息
-   - 按 Enter 键或点击"发送"按钮
-2. **发送图片**
+### 发送消息
 
-   - 点击附件按钮
-   - 选择图片文件
-   - 图片会自动上传并显示预览
-3. **发送文件**
+1. **文本消息**：在输入框输入消息，按 Enter 键发送
+2. **图片分享**：点击附件按钮 📎，选择图片文件
+3. **文件传输**：点击附件按钮 📎，选择任意文件
 
-   - 点击附件按钮
-   - 选择任意文件
-   - 文件会自动上传，其他用户可下载
+### 设置功能
 
-### 界面说明
+点击右上角 ⚙️ 图标打开设置：
+- 配置自动清理间隔（1-168 小时）
+- 查看上次清理时间
+- 手动清理文件
 
-- **在线用户数量**: 页面顶部显示当前在线用户数
-- **消息历史**: 新用户加入时可查看之前的消息
-- **时间戳**: 每条消息显示发送时间
-- **消息提示**: 操作成功或失败会显示提示弹窗
+---
 
-## 配置说明
+## 🛠️ 技术栈
+
+| 类别 | 技术 |
+|------|------|
+| 后端 | Rust + Axum + Tokio |
+| 前端 | HTML + Tailwind CSS + JavaScript |
+| 通信 | WebSocket |
+| 文件处理 | Multipart |
+
+---
+
+## 📁 项目结构
+
+```
+synchronization/
+├── src/
+│   └── main.rs              # 后端主程序
+├── static/
+│   └── index.html           # 前端界面
+├── shared_files/            # 上传文件存储目录
+├── docs/                    # 文档目录
+├── Cargo.toml               # 项目配置
+├── README.md                # 项目说明
+```
+
+---
+
+## 🔌 API 接口
+
+### WebSocket
+
+- **连接地址**: `ws://localhost:3000/ws`
+- **消息格式**: JSON
+
+### HTTP
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/` | 主页面 |
+| POST | `/upload` | 文件上传 |
+| GET | `/files/{filename}` | 文件下载 |
+| GET | `/api/config` | 获取配置 |
+| POST | `/api/config` | 更新配置 |
+| POST | `/api/clean` | 手动清理 |
+
+---
+
+## ⚙️ 配置说明
 
 ### 修改端口
 
-编辑 `src/main.rs` 文件：
+编辑 `src/main.rs`：
 
 ```rust
 let addr = SocketAddr::from(([0, 0, 0, 0], 3000)); // 修改端口号
@@ -84,111 +145,89 @@ let addr = SocketAddr::from(([0, 0, 0, 0], 3000)); // 修改端口号
 
 ### 修改文件大小限制
 
-编辑 `src/main.rs` 文件：
+编辑 `src/main.rs`：
 
 ```rust
 const MAX_FILE_SIZE: usize = 100 * 1024 * 1024; // 修改大小限制（字节）
 ```
 
-### 修改历史消息数量
+---
 
-编辑 `src/main.rs` 文件：
+## 📚 文档
 
-```rust
-if history.len() > 100 { // 修改历史消息数量
-    history.remove(0);
-}
-```
+- [文档目录](docs/README.md)
+- [项目介绍](docs/project-introduction.md)
+- [技术博客](docs/technical-blog.md)
+- [产品白皮书](docs/product-whitepaper.md)
+- [产品宣传](docs/promotion.md)
 
-## 项目结构
+---
 
-```
-synchronization/
-├── src/
-│   └── main.rs          # 后端主程序
-├── static/
-│   └── index.html       # 前端界面
-├── shared_files/        # 上传文件存储目录
-├── Cargo.toml           # 项目依赖
-└── README.md            # 项目文档
-```
+## ❓ 常见问题
 
-## API 接口
-
-### WebSocket
-
-- **连接地址**: `ws://localhost:3000/ws`
-- **消息格式**: JSON
-
-#### 消息类型
-
-1. **文本消息**
-
-```json
-{
-  "type": "message",
-  "content": "消息内容",
-  "sender_id": "用户ID"
-}
-```
-
-2. **图片消息**
-
-```json
-{
-  "type": "image",
-  "content": "",
-  "sender_id": "用户ID",
-  "file_url": "/files/xxx.jpg",
-  "file_name": "图片.jpg",
-  "file_type": "image"
-}
-```
-
-3. **文件消息**
-
-```json
-{
-  "type": "file",
-  "content": "",
-  "sender_id": "用户ID",
-  "file_url": "/files/xxx.zip",
-  "file_name": "文件.zip",
-  "file_type": "file"
-}
-```
-
-### HTTP
-
-- `GET /` - 主页面
-- `POST /upload` - 文件上传
-- `GET /files/{filename}` - 文件下载
-- `GET /files` - 文件列表
-
-## 常见问题
-
-### 1. 文件上传失败
+### 文件上传失败
 
 - 检查文件大小是否超过 100MB
-- 检查网络连接是否正常
+- 检查网络连接
 - 查看服务器控制台错误信息
 
-### 2. WebSocket 连接失败
+### WebSocket 连接失败
 
 - 确保服务器正在运行
 - 检查防火墙设置
 - 确认端口未被占用
 
-### 3. 无法访问其他设备
+### 无法访问其他设备
 
 - 确保所有设备在同一局域网
 - 检查服务器绑定地址（默认 0.0.0.0）
 - 检查防火墙设置
 
-## 许可证
+---
 
-MIT License
-
-## 贡献
+## 🤝 贡献
 
 欢迎提交 Issue 和 Pull Request！
+
+### 贡献方式
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 创建 Pull Request
+
+详见 [项目介绍 - 贡献指南](docs/project-introduction.md#贡献指南)
+
+## 📧 联系方式
+
+- **GitHub**: [Sunrisies/lan-share](https://github.com/Sunrisies/lan-share)
+- **Email**: 3266420686@qq.com
+- **Issues**: [提交问题](https://github.com/Sunrisies/lan-share/issues)
+
+---
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 详见 [LICENSE](LICENSE) 文件
+
+---
+
+## 🙏 致谢
+
+- [Axum](https://github.com/tokio-rs/axum) - Web 框架
+- [Tokio](https://tokio.rs/) - 异步运行时
+- [Tailwind CSS](https://tailwindcss.com/) - CSS 框架
+- [Rust Embed](https://github.com/pyros2097/rust-embed) - 静态资源嵌入
+
+## ⭐ Star History
+
+如果这个项目对您有帮助，请给我们一个 Star！
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Sunrisies/lan-share&type=Date)](https://star-history.com/#Sunrisies/lan-share&Date)
+
+---
+
+**让局域网沟通更简单！** 🚀
+
+Made with ❤️ by [Sunrisies](https://github.com/Sunrisies)
