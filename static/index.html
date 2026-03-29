@@ -151,11 +151,11 @@
         /* 输入框区域 */
         .input-area {
             display: flex;
-            align-items: flex-end;
             gap: 8px;
             padding-top: 12px;
             border-top: 1px solid #e5e7eb;
             flex-shrink: 0;
+            height: 100px;
         }
 
         .input-area .input-wrapper {
@@ -202,8 +202,8 @@
         /* 桌面端样式 */
         @media (min-width: 640px) {
             .input-area textarea {
-                height: 40px;
-                max-height: 40px;
+                height: 82px;
+                max-height: 82px;
             }
         }
 
@@ -276,18 +276,16 @@
                 <!-- 聊天消息将由JavaScript动态生成 -->
             </div>
 
-<!-- 输入区域 -->
+            <!-- 输入区域 -->
             <div class="input-area">
                 <div class="input-wrapper">
-                    <textarea id="message-input" placeholder="输入消息...（按Enter发送，Shift+Enter换行）"
-                        rows="1"></textarea>
+                    <textarea id="message-input" placeholder="输入消息...（按Enter发送，Shift+Enter换行）" rows="1"></textarea>
                 </div>
                 <div class="button-group">
                     <input type="file" id="chat-file-input" class="hidden" multiple
                         accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar">
                     <button onclick="document.getElementById('chat-file-input').click()"
-                        class="bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors"
-                        title="发送文件">
+                        class="bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors" title="发送文件">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13">
@@ -298,7 +296,8 @@
                         class="bg-primary hover:bg-blue-700 text-white rounded-lg transition-colors">
                         <span class="hidden sm:inline">发送</span>
                         <svg class="w-5 h-5 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
                         </svg>
                     </button>
                 </div>
@@ -729,7 +728,9 @@
         function addMessage(text, type, timestamp) {
             const time = timestamp || new Date().toLocaleTimeString();
             const messageDiv = document.createElement('div');
-            messageDiv.className = `mb-1.5 p-1.5 rounded-lg text-xs max-w-xs ${type === 'sent' ? 'bg-primary text-white ml-auto' : 'bg-white border'}`;
+            messageDiv.className = `mb-1.5 p-1.5 rounded-lg text-xs max-w-xs cursor-pointer ${type === 'sent' ? 'bg-primary text-white ml-auto' : 'bg-white border'}`;
+            messageDiv.onclick = function () { copyMessage(text); };
+            messageDiv.title = '点击复制消息';
             messageDiv.innerHTML = `
                 <div class="flex justify-between items-center">
                     <div class="text-sm ${type === 'sent' ? 'text-blue-100' : 'text-gray-500'} mb-1">
@@ -739,66 +740,18 @@
                         ${time}
                     </div>
                 </div>
-                <div>${text}</div>
+                <div class="break-words max-w-xs p-2">${text}</div>
             `;
             chatBox.appendChild(messageDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        function addSystemMessage(text) {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'text-center text-gray-500 text-sm my-4';
-            messageDiv.textContent = text;
-            chatBox.appendChild(messageDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-
-        function addImageMessage(imageUrl, fileName, type, timestamp) {
-            const time = timestamp || new Date().toLocaleTimeString();
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `mb-3 p-3 rounded-lg max-w-xs ${type === 'sent' ? 'bg-primary text-white ml-auto' : 'bg-white border'}`;
-            messageDiv.innerHTML = `
-                <div class="flex justify-between items-center mb-1">
-                    <div class="text-sm ${type === 'sent' ? 'text-blue-100' : 'text-gray-500'} mb-1">
-                        ${type === 'sent' ? '我' : '其他用户'}
-                    </div>
-                    <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-400'} mt-1 text-right">
-                        ${time}
-                    </div>
-                </div>
-                <div class="mb-2">
-                    <img src="${imageUrl}" alt="${fileName}" class="max-w-full max-h-64 rounded cursor-pointer" onclick="window.open('${imageUrl}', '_blank')">
-                </div>
-                <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-500'}">${fileName}</div>
-            `;
-            chatBox.appendChild(messageDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-
-        function addFileMessage(fileUrl, fileName, type, timestamp) {
-            const time = timestamp || new Date().toLocaleTimeString();
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `mb-3 p-3 rounded-lg max-w-xs ${type === 'sent' ? 'bg-primary text-white ml-auto' : 'bg-white border'}`;
-            messageDiv.innerHTML = `
-                <div class="flex justify-between items-center mb-1">
-                    <div class="text-sm ${type === 'sent' ? 'text-blue-100' : 'text-gray-500'} mb-1">
-                        ${type === 'sent' ? '我' : '其他用户'}
-                    </div>
-                    <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-400'} mt-1 text-right">
-                        ${time}
-                    </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <svg class="w-6 h-6 ${type === 'sent' ? 'text-blue-200' : 'text-gray-500'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                    <a href="${fileUrl}" download="${fileName}" class="${type === 'sent' ? 'text-blue-100 hover:text-white' : 'text-primary hover:text-blue-700'} font-medium">
-                        ${fileName}
-                    </a>
-                </div>
-            `;
-            chatBox.appendChild(messageDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
+        function copyMessage(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showSuccess('已复制消息');
+            }).catch(() => {
+                showError('复制失败');
+            });
         }
 
         function sendMessage() {
@@ -928,7 +881,61 @@
             // 清空文件输入框
             chatFileInput.value = '';
         }
+        function addSystemMessage(text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'text-center text-gray-500 text-sm my-4';
+            messageDiv.textContent = text;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
 
+        function addImageMessage(imageUrl, fileName, type, timestamp) {
+            const time = timestamp || new Date().toLocaleTimeString();
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `mb-3 p-3 rounded-lg max-w-xs ${type === 'sent' ? 'bg-primary text-white ml-auto' : 'bg-white border'}`;
+            messageDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-1">
+                    <div class="text-sm ${type === 'sent' ? 'text-blue-100' : 'text-gray-500'} mb-1">
+                        ${type === 'sent' ? '我' : '其他用户'}
+                    </div>
+                    <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-400'} mt-1 text-right">
+                        ${time}
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <img src="${imageUrl}" alt="${fileName}" class="max-w-full max-h-64 rounded cursor-pointer" onclick="window.open('${imageUrl}', '_blank')">
+                </div>
+                <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-500'}">${fileName}</div>
+            `;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function addFileMessage(fileUrl, fileName, type, timestamp) {
+            const time = timestamp || new Date().toLocaleTimeString();
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `mb-3 p-3 rounded-lg max-w-xs ${type === 'sent' ? 'bg-primary text-white ml-auto' : 'bg-white border'}`;
+            messageDiv.innerHTML = `
+                <div class="flex justify-between items-center mb-1">
+                    <div class="text-sm ${type === 'sent' ? 'text-blue-100' : 'text-gray-500'} mb-1">
+                        ${type === 'sent' ? '我' : '其他用户'}
+                    </div>
+                    <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-400'} mt-1 text-right">
+                        ${time}
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <svg class="w-6 h-6 ${type === 'sent' ? 'text-blue-200' : 'text-gray-500'}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <a href="${fileUrl}" download="${fileName}" class="${type === 'sent' ? 'text-blue-100 hover:text-white' : 'text-primary hover:text-blue-700'} font-medium">
+                        ${fileName}
+                    </a>
+                </div>
+            `;
+            chatBox.appendChild(messageDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
         // 将函数挂载到 window 对象，以便 onclick 可以调用
         window.openSettings = openSettings;
         window.closeSettings = closeSettings;
