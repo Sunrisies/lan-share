@@ -23,10 +23,12 @@
     </script>
     <style>
         /* 基础样式 */
-        html, body {
+        html,
+        body {
             overflow: hidden;
             height: 100%;
-            height: 100dvh; /* 动态视口高度，更好的移动端支持 */
+            height: 100dvh;
+            /* 动态视口高度，更好的移动端支持 */
         }
 
         /* 聊天容器 */
@@ -106,6 +108,7 @@
                 transform: translateY(-20px);
                 opacity: 0;
             }
+
             to {
                 transform: translateY(0);
                 opacity: 1;
@@ -116,6 +119,7 @@
             from {
                 opacity: 1;
             }
+
             to {
                 opacity: 0;
             }
@@ -147,14 +151,60 @@
         /* 输入框区域 */
         .input-area {
             display: flex;
+            align-items: flex-end;
             gap: 8px;
             padding-top: 12px;
             border-top: 1px solid #e5e7eb;
+            flex-shrink: 0;
         }
 
-        .input-area input[type="text"] {
+        .input-area .input-wrapper {
             flex: 1;
             min-width: 0;
+        }
+
+        .input-area textarea {
+            width: 100%;
+            height: 72px;
+            min-height: 36px;
+            max-height: 72px;
+            resize: none;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 14px;
+            line-height: 1.5;
+            overflow-y: auto;
+            word-wrap: break-word;
+            box-sizing: border-box;
+        }
+
+        .input-area textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+
+        .input-area .button-group {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .input-area .button-group button {
+            padding: 8px 12px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 桌面端样式 */
+        @media (min-width: 640px) {
+            .input-area textarea {
+                height: 40px;
+                max-height: 40px;
+            }
         }
 
         /* 桌面端样式 */
@@ -182,11 +232,13 @@
                 <h1 class="text-xl sm:text-2xl font-bold text-gray-800">局域网聊天</h1>
             </div>
             <div class="flex items-center gap-1">
-                <span class="hidden sm:inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">
+                <span
+                    class="hidden sm:inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2">
                     <span class="w-2 h-2 rounded-full bg-green-500 mr-1 animate-pulse"></span>
                     <span id="user-count-desktop">0</span> 人在线
                 </span>
-                <button onclick="openQRCode()" class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                <button onclick="openQRCode()"
+                    class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                     title="扫码加入">
                     <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -194,7 +246,8 @@
                         </path>
                     </svg>
                 </button>
-                <button onclick="openSettings()" class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                <button onclick="openSettings()"
+                    class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
                     title="设置">
                     <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -211,7 +264,8 @@
         <div class="chat-card bg-white rounded-xl shadow-lg p-3 sm:p-4 flex flex-col">
             <!-- 在线用户状态（移动端） -->
             <div class="sm:hidden flex items-center justify-center mb-2">
-                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                <span
+                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                     <span class="w-2 h-2 rounded-full bg-green-500 mr-1 animate-pulse"></span>
                     <span id="user-count-mobile">0</span> 人在线
                 </span>
@@ -222,28 +276,32 @@
                 <!-- 聊天消息将由JavaScript动态生成 -->
             </div>
 
-            <!-- 输入区域 -->
+<!-- 输入区域 -->
             <div class="input-area">
-                <input type="text" id="message-input" placeholder="输入消息..."
-                    class="border border-gray-300 rounded-lg px-3 py-2 sm:px-4 sm:py-3 text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
-                <input type="file" id="chat-file-input" class="hidden" multiple
-                    accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar">
-                <button onclick="document.getElementById('chat-file-input').click()"
-                    class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold p-2 sm:px-4 rounded-lg transition-colors flex-shrink-0"
-                    title="发送文件">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13">
-                        </path>
-                    </svg>
-                </button>
-                <button onclick="sendMessage()"
-                    class="bg-primary hover:bg-blue-700 text-white font-semibold px-3 py-2 sm:px-6 sm:py-3 rounded-lg transition-colors flex-shrink-0">
-                    <span class="hidden sm:inline">发送</span>
-                    <svg class="w-5 h-5 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
-                    </svg>
-                </button>
+                <div class="input-wrapper">
+                    <textarea id="message-input" placeholder="输入消息...（按Enter发送，Shift+Enter换行）"
+                        rows="1"></textarea>
+                </div>
+                <div class="button-group">
+                    <input type="file" id="chat-file-input" class="hidden" multiple
+                        accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar">
+                    <button onclick="document.getElementById('chat-file-input').click()"
+                        class="bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg transition-colors"
+                        title="发送文件">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13">
+                            </path>
+                        </svg>
+                    </button>
+                    <button onclick="sendMessage()"
+                        class="bg-primary hover:bg-blue-700 text-white rounded-lg transition-colors">
+                        <span class="hidden sm:inline">发送</span>
+                        <svg class="w-5 h-5 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                        </svg>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -344,7 +402,11 @@
         const messageInput = document.getElementById('message-input');
         const toastContainer = document.getElementById('toast-container');
         const settingsModal = document.getElementById('settings-modal');
-
+        let myClientId = localStorage.getItem('lan-share-client-id');
+        if (!myClientId) {
+            myClientId = 'client_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+            localStorage.setItem('lan-share-client-id', myClientId);
+        }
         // 设置相关函数
         function openSettings() {
             loadConfig();
@@ -554,76 +616,115 @@
         }
 
         // WebSocket 连接
-        const ws = new WebSocket(`ws://${window.location.host}/ws`);
+        let ws = null;
+        let reconnectTimer = null;
 
-        // 从 localStorage 获取或生成客户端ID（刷新后保持不变）
-        let myClientId = localStorage.getItem('lan-share-client-id');
-        if (!myClientId) {
-            myClientId = 'client_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
-            localStorage.setItem('lan-share-client-id', myClientId);
+        function connectWebSocket() {
+            // 如果已有连接且正常，直接返回
+            if (ws && ws.readyState === WebSocket.OPEN) return;
+
+            console.log('初始化WebSocket连接...');
+            ws = new WebSocket(`ws://${window.location.host}/ws`);
+            let myClientId = localStorage.getItem('lan-share-client-id');
+            if (!myClientId) {
+                myClientId = 'client_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+                localStorage.setItem('lan-share-client-id', myClientId);
+            }
+            ws.onopen = function () {
+                console.log('WebSocket连接成功');
+                // 清除重连定时器
+                if (reconnectTimer) {
+                    clearTimeout(reconnectTimer);
+                    reconnectTimer = null;
+                }
+                // 发送注册消息，包含客户端ID
+                ws.send(JSON.stringify({ type: 'register', sender_id: myClientId }));
+                addSystemMessage('已连接到聊天服务器');
+            };
+
+            ws.onmessage = function (event) {
+                try {
+                    const data = JSON.parse(event.data);
+
+                    // 处理用户数量更新
+                    if (data.type === 'user_count') {
+                        const desktopCount = document.getElementById('user-count-desktop');
+                        const mobileCount = document.getElementById('user-count-mobile');
+                        if (desktopCount) desktopCount.textContent = data.count;
+                        if (mobileCount) mobileCount.textContent = data.count;
+                        return;
+                    }
+
+                    // 处理历史消息
+                    if (data.type === 'history') {
+                        if (data.messages && data.messages.length > 0) {
+                            addSystemMessage(`加载了 ${data.messages.length} 条历史消息`);
+                            data.messages.forEach(msg => {
+                                const isMyMessage = msg.sender_id === myClientId;
+                                if (msg.type === 'message') {
+                                    addMessage(msg.content, isMyMessage ? 'sent' : 'received', msg.timestamp);
+                                } else if (msg.type === 'image') {
+                                    addImageMessage(msg.file_url, msg.file_name, isMyMessage ? 'sent' : 'received', msg.timestamp);
+                                } else if (msg.type === 'file') {
+                                    addFileMessage(msg.file_url, msg.file_name, isMyMessage ? 'sent' : 'received', msg.timestamp);
+                                }
+                            });
+                        }
+                        return;
+                    }
+
+                    // 检查是否是自己发送的消息
+                    const isMyMessage = data.sender_id === myClientId;
+
+                    if (data.type === 'message') {
+                        addMessage(data.content, isMyMessage ? 'sent' : 'received', data.timestamp);
+                    } else if (data.type === 'image') {
+                        addImageMessage(data.file_url, data.file_name, isMyMessage ? 'sent' : 'received', data.timestamp);
+                    } else if (data.type === 'file') {
+                        addFileMessage(data.file_url, data.file_name, isMyMessage ? 'sent' : 'received', data.timestamp);
+                    }
+                } catch (e) {
+                    addMessage(event.data, 'received');
+                }
+            };
+
+            ws.onclose = function () {
+                console.log('WebSocket连接断开');
+                // 3秒后自动重连
+                reconnectTimer = setTimeout(() => {
+                    console.log('尝试重新连接...');
+                    connectWebSocket();
+                }, 3000);
+            };
+
+            ws.onerror = function (e) {
+                console.error('WebSocket错误:', e);
+            };
         }
 
-        ws.onopen = function () {
-            // 发送注册消息，包含客户端ID
-            ws.send(JSON.stringify({ type: 'register', sender_id: myClientId }));
-            console.log("成功连接")
-            addSystemMessage('已连接到聊天服务器');
-        };
+        // 立即初始化连接，不需要等待页面加载
+        connectWebSocket();
 
-        ws.onmessage = function (event) {
-            try {
-                const data = JSON.parse(event.data);
-
-                // 处理用户数量更新
-                if (data.type === 'user_count') {
-                    const desktopCount = document.getElementById('user-count-desktop');
-                    const mobileCount = document.getElementById('user-count-mobile');
-                    if (desktopCount) desktopCount.textContent = data.count;
-                    if (mobileCount) mobileCount.textContent = data.count;
-                    return;
+        // 监听页面可见性变化，处理移动端切换应用时的断连问题
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) {
+                // 页面隐藏时不做处理
+            } else {
+                // 页面重新可见时，检查连接状态并重连
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    showInfo('正在重新连接...');
+                    connectWebSocket();
                 }
-
-                // 处理历史消息
-                if (data.type === 'history') {
-                    if (data.messages && data.messages.length > 0) {
-                        addSystemMessage(`加载了 ${data.messages.length} 条历史消息`);
-                        data.messages.forEach(msg => {
-                            const isMyMessage = msg.sender_id === myClientId;
-                            if (msg.type === 'message') {
-                                addMessage(msg.content, isMyMessage ? 'sent' : 'received', msg.timestamp);
-                            } else if (msg.type === 'image') {
-                                addImageMessage(msg.file_url, msg.file_name, isMyMessage ? 'sent' : 'received', msg.timestamp);
-                            } else if (msg.type === 'file') {
-                                addFileMessage(msg.file_url, msg.file_name, isMyMessage ? 'sent' : 'received', msg.timestamp);
-                            }
-                        });
-                    }
-                    return;
-                }
-
-                // 检查是否是自己发送的消息
-                const isMyMessage = data.sender_id === myClientId;
-
-                if (data.type === 'message') {
-                    addMessage(data.content, isMyMessage ? 'sent' : 'received', data.timestamp);
-                } else if (data.type === 'image') {
-                    addImageMessage(data.file_url, data.file_name, isMyMessage ? 'sent' : 'received', data.timestamp);
-                } else if (data.type === 'file') {
-                    addFileMessage(data.file_url, data.file_name, isMyMessage ? 'sent' : 'received', data.timestamp);
-                }
-            } catch (e) {
-                // 如果不是JSON格式，作为普通消息处理
-                addMessage(event.data, 'received');
             }
-        };
+        });
 
-        ws.onclose = function () {
-            addSystemMessage('与服务器断开连接');
-        };
-
-        ws.onerror = function () {
-            addSystemMessage('连接错误');
-        };
+        // 监听页面焦点，处理移动端从文件选择器返回时的问题
+        window.addEventListener('focus', function () {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showInfo('正在重新连接...');
+                connectWebSocket();
+            }
+        });
 
         function addMessage(text, type, timestamp) {
             const time = timestamp || new Date().toLocaleTimeString();
@@ -702,19 +803,29 @@
 
         function sendMessage() {
             const message = messageInput.value.trim();
-            if (message && ws.readyState === WebSocket.OPEN) {
-                // 发送消息时包含客户端ID
-                ws.send(JSON.stringify({
-                    type: 'message',
-                    content: message,
-                    sender_id: myClientId
-                }));
-                messageInput.value = '';
+            if (!message) return;
+
+            // 检查连接状态，如果未连接则尝试重连
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showInfo('正在连接...');
+                connectWebSocket();
+                // 等待连接完成后再发送（这里简单处理，仅提示）
+                return;
             }
+
+            // 发送消息时包含客户端ID
+            ws.send(JSON.stringify({
+                type: 'message',
+                content: message,
+                sender_id: myClientId
+            }));
+            messageInput.value = '';
         }
 
-        messageInput.addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
+        // Enter发送，Shift+Enter换行
+        messageInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
                 sendMessage();
             }
         });
@@ -743,6 +854,8 @@
             }
 
             try {
+                showInfo('正在上传文件...');
+
                 const response = await fetch('/upload', {
                     method: 'POST',
                     body: formData
@@ -753,6 +866,14 @@
 
                     // 处理上传成功的文件
                     if (result.files && result.files.length > 0) {
+                        // 检查连接状态，如果未连接则尝试重连
+                        if (!ws || ws.readyState !== WebSocket.OPEN) {
+                            showInfo('正在连接...');
+                            connectWebSocket();
+                            showError('连接已断开，请重新尝试发送');
+                            return;
+                        }
+
                         result.files.forEach(file => {
                             // 判断文件类型
                             const fileExt = file.file_name.split('.').pop().toLowerCase();
@@ -794,6 +915,13 @@
                 }
             } catch (error) {
                 console.error('上传文件失败:', error);
+
+                // 如果是网络错误，尝试重连WebSocket
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    showInfo('正在重新连接...');
+                    connectWebSocket();
+                }
+
                 showError('上传文件时发生错误');
             }
 
