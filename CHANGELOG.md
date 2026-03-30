@@ -6,6 +6,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v0.3.0] - 2026-03-30
+
+### 🚀 功能增强 & 体验优化
+
+#### ✨ 新增功能
+
+**文件上传增强**
+- 拖拽上传支持：直接将文件拖入聊天窗口即可上传
+- 剪贴板粘贴图片：在输入框 Ctrl+V 即可粘贴并发送图片
+
+**图片预览**
+- 点击图片在当前页面打开预览
+- 支持下载原图
+- 多种关闭方式（点击遮罩、关闭按钮、ESC 键）
+
+**开机自启**
+- Windows：添加到注册表启动项
+- Linux：创建 desktop 启动文件
+- 设置中一键开关，默认为关闭
+
+#### 🐛 Bug 修复
+
+- 修复刷新页面后消息归属显示错误的问题
+- 修复图片在新页面打开的问题，改为预览弹窗
+
+#### 📱 移动端优化
+
+- 拖拽上传支持移动端浏览器
+- 图片预览适配移动端屏幕
+
+#### 🛠️ 技术改进
+
+- 后端新增 `/api/autostart` API
+- 前端使用原生 Tailwind CSS 弹窗样式
+- 添加 `dirs` 依赖用于获取用户配置目录
+
+---
+
 ## [v0.2.0] - 2026-03-28
 
 ### 🎉 新增扫码加入 & 移动端适配
@@ -130,5 +168,6 @@ cargo build --release
 
 ---
 
+[v0.3.0]: https://github.com/Sunrisies/lan-share/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/Sunrisies/lan-share/releases/tag/v0.2.0
 [v0.1.0]: https://github.com/Sunrisies/lan-share/releases/tag/v0.1.0
