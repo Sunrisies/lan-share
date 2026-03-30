@@ -286,7 +286,7 @@
             <!-- 输入区域 -->
             <div class="input-area">
                 <div class="input-wrapper">
-                    <textarea id="message-input" placeholder="输入消息...（按Enter发送，Shift+Enter换行）" rows="1"></textarea>
+                    <textarea id="message-input" placeholder="输入消息...（Ctrl+V粘贴图片，按Enter发送，Shift+Enter换行）" rows="1"></textarea>
                 </div>
                 <div class="button-group">
                     <input type="file" id="chat-file-input" class="hidden" multiple
@@ -787,6 +787,26 @@
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
+            }
+        });
+
+        // 剪贴板粘贴图片
+        messageInput.addEventListener('paste', function (e) {
+            const items = e.clipboardData.items;
+            const imageFiles = [];
+
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    const file = items[i].getAsFile();
+                    if (file) {
+                        imageFiles.push(file);
+                    }
+                }
+            }
+
+            if (imageFiles.length > 0) {
+                e.preventDefault();
+                uploadChatFiles(imageFiles);
             }
         });
 
