@@ -17,6 +17,7 @@ use futures::{
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::env;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
@@ -111,6 +112,10 @@ async fn main() {
         .route("/api/config", get(get_config).post(update_config))
         .route("/api/clean", post(clean_files))
         .route("/api/server-info", get(get_server_info))
+        .route(
+            "/api/autostart",
+            get(get_autostart_status).post(set_autostart),
+        )
         .nest_service("/files", ServeDir::new("shared_files"))
         .fallback(get(static_handler))
         .layer(DefaultBodyLimit::max(100 * 1024 * 1024)) // 设置最大100MB
@@ -333,6 +338,105 @@ async fn clean_files() -> impl IntoResponse {
         "success": true,
         "message": "文件清理完成"
     }))
+}
+
+/// 获取开机自启状态
+async fn get_autostart_status() -> impl IntoResponse {
+    let enabled = is_autostart_enabled();
+    axum::Json(serde_json::json!({
+        "success": true,
+        "enabled": enabled
+    }))
+}
+
+/// 设置开机自启
+async fn set_autostart(
+    axum::extract::Json(body): axum::extract::Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let enabled = body
+        .get("enabled")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
+    let (action, success_msg, failure_msg) = if enabled {
+        (
+            set_autostart_enabled as fn() -> bool,
+            "已开启开机自启",
+            "开启开机自启失败",
+        )
+    } else {
+        (
+            set_autostart_disabled as fn() -> bool,
+            "已关闭开机自启",
+            "关闭开机自启失败",
+        )
+    };
+
+    let success = action();
+    let message = if success { success_msg } else { failure_msg };
+
+    axum::Json(serde_json::json!({
+        "success": success,
+        "message": message
+    }))
+}
+
+fn is_autostart_enabled() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        let output = Command::new("reg")
+            .args([
+                "query",
+                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                "/v",
+                "LanShare",
+            ])
+            .output();
+        if let Ok(output) = output {
+            return String::from_utf8_lossy(&output.stdout).contains("LanShare");
+        }
+        false
+    }
+}
+
+fn set_autostart_enabled() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(exe_path) = env::current_exe() {
+            let exe_path_str = exe_path.to_string_lossy();
+            let output = std::process::Command::new("reg")
+                .args([
+                    "add",
+                    r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                    "/v",
+                    "LanShare",
+                    "/t",
+                    "REG_SZ",
+                    "/d",
+                    &exe_path_str,
+                    "/f",
+                ])
+                .output();
+            return output.is_ok();
+        }
+        false
+    }
+}
+
+fn set_autostart_disabled() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        let output = std::process::Command::new("reg")
+            .args([
+                "delete",
+                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                "/v",
+                "LanShare",
+                "/f",
+            ])
+            .output();
+        output.is_ok()
+    }
 }
 
 async fn ws_handler(
