@@ -1,13 +1,19 @@
 use axum::{
     body::Body,
-    extract::{DefaultBodyLimit, Multipart, WebSocketUpgrade},
+    extract::{
+        ws::{Message, WebSocket},
+        DefaultBodyLimit, Multipart, WebSocketUpgrade,
+    },
     http::{header, StatusCode, Uri},
     response::{IntoResponse, Response},
     routing::{get, post},
     Router,
 };
 use chrono::Local;
-use futures::{SinkExt, StreamExt};
+use futures::{
+    stream::{SplitSink, SplitStream},
+    SinkExt, StreamExt,
+};
 use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -112,9 +118,9 @@ async fn main() {
 
     // 启动服务器
     let addr = SocketAddr::from(([0, 0, 0, 0], 3000));
-    println!("服务器运行在 http://{}", addr);
-    println!("文件分享访问地址 http://{}/files", addr);
-    println!("WebSocket 聊天访问地址 ws://{}/ws", addr);
+    println!("服务器运行在 http://{addr}");
+    println!("文件分享访问地址 http://{addr}/files");
+    println!("WebSocket 聊天访问地址 ws://{addr}/ws");
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
     axum::serve(listener, app.into_make_service())
@@ -181,22 +187,21 @@ async fn start_auto_clean_task(config: Arc<Mutex<Config>>) {
     loop {
         tokio::time::sleep(tokio::time::Duration::from_secs(60)).await; // 每分钟检查一次
 
-        let should_clean = {
-            let config_lock = config.lock().unwrap();
-            if let Some(last_clean) = &config_lock.last_clean_time {
-                if let Ok(last_time) =
-                    chrono::NaiveDateTime::parse_from_str(last_clean, "%Y-%m-%d %H:%M:%S")
-                {
-                    let now = Local::now().naive_local();
-                    let duration = now.signed_duration_since(last_time);
-                    duration.num_hours() >= config_lock.auto_clean_hours as i64
-                } else {
-                    true
-                }
-            } else {
-                true
-            }
-        };
+        let should_clean =
+            {
+                let config_lock = config.lock().unwrap();
+                config_lock
+                    .last_clean_time
+                    .as_ref()
+                    .is_none_or(|last_clean| {
+                        chrono::NaiveDateTime::parse_from_str(last_clean, "%Y-%m-%d %H:%M:%S")
+                            .map_or(true, |last_time| {
+                                let now = Local::now().naive_local();
+                                let duration = now.signed_duration_since(last_time);
+                                duration.num_hours() >= i64::from(config_lock.auto_clean_hours)
+                            })
+                    })
+            };
 
         if should_clean {
             println!("执行自动清理...");
@@ -222,9 +227,9 @@ async fn clean_shared_files() {
             let path = entry.path();
             if path.is_file() {
                 if let Err(e) = tokio::fs::remove_file(&path).await {
-                    println!("删除文件失败 {:?}: {}", path, e);
+                    println!("删除文件失败 {}: {e}", path.display());
                 } else {
-                    println!("已删除文件: {:?}", path);
+                    println!("已删除文件: {}", path.display());
                 }
             }
         }
@@ -249,7 +254,7 @@ async fn get_server_info() -> impl IntoResponse {
         "success": true,
         "port": port,
         "ips": local_ips,
-        "urls": local_ips.iter().map(|ip| format!("http://{}:{}", ip, port)).collect::<Vec<_>>()
+        "urls": local_ips.iter().map(|ip| format!("http://{ip}:{port}")).collect::<Vec<_>>()
     }))
 }
 
@@ -294,9 +299,13 @@ fn get_local_ip_addresses() -> Vec<String> {
 async fn update_config(
     axum::extract::Json(body): axum::extract::Json<serde_json::Value>,
 ) -> impl IntoResponse {
-    if let Some(hours) = body.get("auto_clean_hours").and_then(|v| v.as_u64()) {
+    if let Some(hours) = body
+        .get("auto_clean_hours")
+        .and_then(serde_json::Value::as_u64)
+    {
         let mut config = load_config().await;
-        config.auto_clean_hours = hours as u32;
+        config.auto_clean_hours =
+            u32::try_from(hours).expect("auto_clean_hours 配置值过大，无法存入 u32");
         save_config(&config).await;
 
         axum::Json(serde_json::json!({
@@ -339,35 +348,13 @@ async fn handle_socket(
     clients: Arc<Mutex<HashMap<String, String>>>,
     message_history: Arc<Mutex<Vec<String>>>,
 ) {
-    let (mut sender, mut receiver) = socket.split();
-    let mut rx = tx.subscribe();
-    let client_id = uuid::Uuid::new_v4().to_string();
+    let (mut sender, receiver) = socket.split();
+    let client_id = register_client(&clients);
+    let rx = tx.subscribe();
 
-    // 将客户端添加到列表
-    {
-        let mut clients_lock = clients.lock().unwrap();
-        clients_lock.insert(client_id.clone(), String::from("connected"));
-    }
-
-    // 向新客户端发送消息历史记录
-    let history_json = {
-        let history = message_history.lock().unwrap();
-        if !history.is_empty() {
-            let history_msg = HistoryMessage {
-                msg_type: "history".to_string(),
-                messages: history
-                    .iter()
-                    .filter_map(|msg| serde_json::from_str(msg).ok())
-                    .collect(),
-            };
-            Some(serde_json::to_string(&history_msg).unwrap())
-        } else {
-            None
-        }
-    };
-
-    if let Some(json) = history_json {
-        let _ = sender.send(axum::extract::ws::Message::Text(json)).await;
+    // 发送历史消息
+    if let Some(history_json) = build_history_json(&message_history) {
+        let _ = sender.send(Message::Text(history_json)).await;
     }
 
     // 向新客户端发送当前用户数量
@@ -386,73 +373,20 @@ async fn handle_socket(
 
     // 向所有客户端广播用户数量
     let _ = tx.send(count_json);
-
-    // 启动任务向此客户端广播消息
-    let mut send_task = tokio::spawn(async move {
-        while let Ok(msg) = rx.recv().await {
-            if sender
-                .send(axum::extract::ws::Message::Text(msg))
-                .await
-                .is_err()
-            {
-                break;
-            }
-        }
-    });
-
-    // 启动任务接收来自此客户端的消息
-    let tx2 = tx.clone();
-    let history_clone = message_history.clone();
-    let mut recv_task = tokio::spawn(async move {
-        while let Some(Ok(msg)) = receiver.next().await {
-            if let axum::extract::ws::Message::Text(text) = msg {
-                // 解析传入的消息
-                if let Ok(chat_msg) = serde_json::from_str::<ChatMessage>(&text) {
-                    match chat_msg.msg_type.as_str() {
-                        "message" | "file" | "image" => {
-                            // 添加时间戳
-                            let timestamp =
-                                chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-                            let sender_id = chat_msg.sender_id.unwrap_or_default();
-
-                            // 创建带有发送者ID和时间戳的消息
-                            let broadcast_msg = ChatMessage {
-                                msg_type: chat_msg.msg_type,
-                                content: chat_msg.content,
-                                sender_id: Some(sender_id),
-                                file_url: chat_msg.file_url,
-                                file_name: chat_msg.file_name,
-                                file_type: chat_msg.file_type,
-                                timestamp: Some(timestamp),
-                            };
-                            let json = serde_json::to_string(&broadcast_msg).unwrap();
-
-                            // 保存到历史记录
-                            {
-                                let mut history = history_clone.lock().unwrap();
-                                history.push(json.clone());
-                                // 限制历史记录数量，最多保存100条
-                                if history.len() > 100 {
-                                    history.remove(0);
-                                }
-                            }
-
-                            // 广播消息
-                            let _ = tx2.send(json);
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
-    });
+    // 创建发送任务（向此客户端广播）
+    let mut send_task = tokio::spawn(run_sender_task(rx, sender));
+    // 创建接收任务（从此客户端接收消息）
+    let mut recv_task = tokio::spawn(run_receiver_task(
+        receiver,
+        tx.clone(),
+        message_history.clone(),
+    ));
 
     // 等待任一任务完成
     tokio::select! {
-        _ = (&mut send_task) => recv_task.abort(),
-        _ = (&mut recv_task) => send_task.abort(),
+        _ = &mut send_task => recv_task.abort(),
+        _ = &mut recv_task => send_task.abort(),
     }
-
     // 从列表中移除客户端
     {
         let mut clients_lock = clients.lock().unwrap();
@@ -471,8 +405,95 @@ async fn handle_socket(
     let count_json = serde_json::to_string(&count_msg).unwrap();
     let _ = tx.send(count_json);
 }
+/// 接收客户端消息的任务（独立函数）
+async fn run_receiver_task(
+    mut receiver: SplitStream<WebSocket>,
+    tx: broadcast::Sender<String>,
+    message_history: Arc<Mutex<Vec<String>>>,
+) {
+    while let Some(Ok(msg)) = receiver.next().await {
+        if let axum::extract::ws::Message::Text(text) = msg {
+            // 解析传入的消息
+            if let Ok(chat_msg) = serde_json::from_str::<ChatMessage>(&text) {
+                match chat_msg.msg_type.as_str() {
+                    "message" | "file" | "image" => {
+                        // 添加时间戳
+                        let timestamp =
+                            chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+                        let sender_id = chat_msg.sender_id.unwrap_or_default();
 
+                        // 创建带有发送者ID和时间戳的消息
+                        let broadcast_msg = ChatMessage {
+                            msg_type: chat_msg.msg_type,
+                            content: chat_msg.content,
+                            sender_id: Some(sender_id),
+                            file_url: chat_msg.file_url,
+                            file_name: chat_msg.file_name,
+                            file_type: chat_msg.file_type,
+                            timestamp: Some(timestamp),
+                        };
+                        let json = serde_json::to_string(&broadcast_msg).unwrap();
+
+                        // 保存到历史记录
+                        {
+                            let mut history = message_history.lock().unwrap();
+                            history.push(json.clone());
+                            // 限制历史记录数量，最多保存100条
+                            if history.len() > 100 {
+                                history.remove(0);
+                            }
+                        }
+
+                        // 广播消息
+                        let _ = tx.send(json);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+}
 const MAX_FILE_SIZE: usize = 100 * 1024 * 1024; // 100MB
+/// 生成新客户端 ID 并加入 clients 映射
+fn register_client(clients: &Arc<Mutex<HashMap<String, String>>>) -> String {
+    let client_id = uuid::Uuid::new_v4().to_string();
+    let mut lock = clients.lock().unwrap();
+    lock.insert(client_id.clone(), "connected".to_string());
+    client_id
+}
+/// 从历史记录中构建历史消息 JSON（如果有）
+fn build_history_json(message_history: &Arc<Mutex<Vec<String>>>) -> Option<String> {
+    let history = message_history.lock().unwrap();
+    if history.is_empty() {
+        None
+    } else {
+        let history_msg = HistoryMessage {
+            msg_type: "history".to_string(),
+            messages: history
+                .iter()
+                .filter_map(|msg| serde_json::from_str(msg).ok())
+                .collect(),
+        };
+        drop(history); // 提前释放锁
+        Some(serde_json::to_string(&history_msg).unwrap())
+    }
+}
+
+/// 发送广播消息给客户端的任务（独立函数）
+async fn run_sender_task(
+    mut rx: broadcast::Receiver<String>,
+    mut sender: SplitSink<WebSocket, Message>,
+) {
+    while let Ok(msg) = rx.recv().await {
+        if sender
+            .send(axum::extract::ws::Message::Text(msg))
+            .await
+            .is_err()
+        {
+            break;
+        }
+    }
+}
 
 async fn upload_handler(mut multipart: Multipart) -> impl IntoResponse {
     let mut uploaded_files = Vec::new();
@@ -495,12 +516,12 @@ async fn upload_handler(mut multipart: Multipart) -> impl IntoResponse {
                         if e.to_string().contains("multipart/form-data") {
                             let error_msg =
                                 format!("文件太大，超过{}MB限制", MAX_FILE_SIZE / (1024 * 1024));
-                            println!("{}", error_msg);
+                            println!("{error_msg}");
                             errors.push(error_msg);
                             break;
                         }
-                        let error_msg = format!("文件 '{}' 读取失败: {}", file_name, e);
-                        println!("{}", error_msg);
+                        let error_msg = format!("文件 '{file_name}' 读取失败: {e}");
+                        println!("{error_msg}");
                         errors.push(error_msg);
                         continue;
                     }
@@ -508,32 +529,32 @@ async fn upload_handler(mut multipart: Multipart) -> impl IntoResponse {
 
                 // 检查文件大小
                 if data.len() > MAX_FILE_SIZE {
+                    let size_mb = data.len() / (1024 * 1024);
                     let error_msg = format!(
-                        "文件 '{}' 太大: {:.2}MB，最大允许: {}MB",
-                        file_name,
-                        data.len() as f64 / (1024.0 * 1024.0),
+                        "文件 '{file_name}' 太大: {:.2}MB，最大允许: {}MB",
+                        size_mb,
                         MAX_FILE_SIZE / (1024 * 1024)
                     );
-                    println!("{}", error_msg);
+                    println!("{error_msg}");
                     errors.push(error_msg);
                     continue;
                 }
 
                 // 如果 shared_files 目录不存在则创建
                 if let Err(e) = tokio::fs::create_dir_all("shared_files").await {
-                    let error_msg = format!("创建目录失败: {}", e);
-                    println!("{}", error_msg);
+                    let error_msg = format!("创建目录失败: {e}");
+                    println!("{error_msg}");
                     errors.push(error_msg);
                     continue;
                 }
 
                 // 生成唯一文件名以避免冲突
                 let unique_name = format!("{}_{}", uuid::Uuid::new_v4(), file_name);
-                let path = format!("shared_files/{}", unique_name);
+                let path = format!("shared_files/{unique_name}");
 
                 // 保存文件
                 match tokio::fs::write(&path, &data).await {
-                    Ok(_) => {
+                    Ok(()) => {
                         println!("上传文件: {} ({} 字节)", file_name, data.len());
 
                         uploaded_files.push(serde_json::json!({
@@ -543,10 +564,9 @@ async fn upload_handler(mut multipart: Multipart) -> impl IntoResponse {
                         }));
                     }
                     Err(e) => {
-                        let error_msg = format!("文件 '{}' 保存失败: {}", file_name, e);
-                        println!("{}", error_msg);
+                        let error_msg = format!("文件 '{file_name}' 保存失败: {e}");
+                        println!("{error_msg}");
                         errors.push(error_msg);
-                        continue;
                     }
                 }
             }
@@ -554,9 +574,9 @@ async fn upload_handler(mut multipart: Multipart) -> impl IntoResponse {
                 let error_msg = if e.to_string().contains("multipart/form-data") {
                     format!("文件太大，超过{}MB限制", MAX_FILE_SIZE / (1024 * 1024))
                 } else {
-                    format!("读取上传数据失败: {}", e)
+                    format!("读取上传数据失败: {e}")
                 };
-                println!("{}", error_msg);
+                println!("{error_msg}");
                 errors.push(error_msg);
                 break;
             }

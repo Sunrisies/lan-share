@@ -8,7 +8,7 @@ license = "MIT"
 
 [dependencies]
 axum = { version = "0.7", features = ["ws", "multipart"] }
-tokio = { version = "1.0", features = ["full"] }
+tokio = { version = "1.0", features = ["rt-multi-thread", "sync", "macros"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tower-http = { version = "0.5", features = ["fs"] }
@@ -18,3 +18,11 @@ chrono = "0.4"
 rust-embed = { version = "8.0", features = ["axum"] }
 mime_guess = "2.0"
 local-ip-address = "0.6"
+anyhow = "1.0.102"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
