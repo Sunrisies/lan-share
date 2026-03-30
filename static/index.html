@@ -218,12 +218,30 @@
                 max-width: 400px;
             }
         }
-    </style>
+
+        </style>
+
 </head>
 
 <body class="bg-gray-100">
     <!-- 消息提示容器 -->
     <div class="toast-container" id="toast-container"></div>
+
+    <!-- 图片预览弹窗 -->
+    <div id="image-preview-modal" class="hidden fixed inset-0 bg-black/90 z-50 p-4 flex flex-col items-center justify-center">
+        <button onclick="closeImagePreview()" class="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 text-white flex items-center justify-center hover:bg-white/30 transition-colors cursor-pointer border-none">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+        </button>
+        <img id="preview-image" src="" alt="预览图片" class="max-w-[90vw] max-h-[80vh] object-contain">
+        <button onclick="downloadImage()" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-blue-500 hover:bg-blue-600 text-white px-6 py-2.5 rounded-lg cursor-pointer text-sm flex items-center gap-2 transition-colors border-none">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            下载图片
+        </button>
+    </div>
 
     <div class="main-wrapper">
         <!-- 头部 -->
@@ -274,9 +292,12 @@
             <!-- 聊天消息区域（支持拖拽上传） -->
             <div class="chat-container bg-gray-50 rounded-lg p-2 sm:p-4 relative" id="chat-box">
                 <!-- 拖拽上传遮罩 -->
-                <div id="drop-overlay" class="hidden absolute inset-0 bg-blue-500/90 rounded-lg flex flex-col items-center justify-center z-10">
+                <div id="drop-overlay"
+                    class="hidden absolute inset-0 bg-blue-500/90 rounded-lg flex flex-col items-center justify-center z-10">
                     <svg class="w-16 h-16 text-white mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12">
+                        </path>
                     </svg>
                     <p class="text-white text-lg font-semibold">拖拽文件到此处上传</p>
                 </div>
@@ -286,7 +307,8 @@
             <!-- 输入区域 -->
             <div class="input-area">
                 <div class="input-wrapper">
-                    <textarea id="message-input" placeholder="输入消息...（Ctrl+V粘贴图片，按Enter发送，Shift+Enter换行）" rows="1"></textarea>
+                    <textarea id="message-input" placeholder="输入消息...（Ctrl+V粘贴图片，按Enter发送，Shift+Enter换行）"
+                        rows="1"></textarea>
                 </div>
                 <div class="button-group">
                     <input type="file" id="chat-file-input" class="hidden" multiple
@@ -947,6 +969,51 @@
             // 清空文件输入框
             chatFileInput.value = '';
         }
+        let currentPreviewImage = '';
+        let currentFileName = '';
+
+        function openImagePreview(imageUrl, fileName) {
+            const modal = document.getElementById('image-preview-modal');
+            const img = document.getElementById('preview-image');
+            currentPreviewImage = imageUrl;
+            currentFileName = fileName;
+            img.src = imageUrl;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeImagePreview() {
+            const modal = document.getElementById('image-preview-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            document.getElementById('preview-image').src = '';
+        }
+
+        function downloadImage() {
+            if (currentPreviewImage) {
+                const link = document.createElement('a');
+                link.href = currentPreviewImage;
+                link.download = currentFileName || 'image';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+        }
+
+        // 点击预览遮罩关闭
+        document.getElementById('image-preview-modal').addEventListener('click', function (e) {
+            if (e.target === this || e.target.tagName === 'IMG') {
+                closeImagePreview();
+            }
+        });
+
+        // ESC 键关闭预览
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                closeImagePreview();
+            }
+        });
+
         function addSystemMessage(text) {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'text-center text-gray-500 text-sm my-4';
@@ -969,7 +1036,7 @@
                     </div>
                 </div>
                 <div class="mb-2">
-                    <img src="${imageUrl}" alt="${fileName}" class="max-w-full max-h-64 rounded cursor-pointer" onclick="window.open('${imageUrl}', '_blank')">
+                    <img src="${imageUrl}" alt="${fileName}" class="max-w-full max-h-64 rounded cursor-pointer" onclick="openImagePreview('${imageUrl}', '${fileName}')">
                 </div>
                 <div class="text-xs ${type === 'sent' ? 'text-blue-200' : 'text-gray-500'}">${fileName}</div>
             `;
@@ -1011,6 +1078,9 @@
         window.closeQRCode = closeQRCode;
         window.copyUrl = copyUrl;
         window.sendMessage = sendMessage;
+        window.openImagePreview = openImagePreview;
+        window.closeImagePreview = closeImagePreview;
+        window.downloadImage = downloadImage;
     </script>
 </body>
 
